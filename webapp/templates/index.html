@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rekon Online Food</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f0f2f5;
+            color: #1a1a2e;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 { font-size: 24px; font-weight: 600; }
+        .header p { font-size: 14px; opacity: 0.9; margin-top: 4px; }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-title .icon { font-size: 20px; }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        .form-group.full { grid-column: 1 / -1; }
+
+        label {
+            font-size: 13px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        input[type="text"], input[type="date"], select {
+            padding: 10px 14px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+            background: #fafafa;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(102,126,234,0.4); }
+        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover { background: #059669; }
+
+        .btn-secondary {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        .btn-secondary:hover { background: #d1d5db; }
+
+        .btn-group { display: flex; gap: 12px; margin-top: 16px; }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .stat-card .label {
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-card.matched .value { color: #10b981; }
+        .stat-card.erp-only .value { color: #f59e0b; }
+        .stat-card.plat-only .value { color: #ef4444; }
+        .stat-card.selisih .value { color: #667eea; }
+
+        /* Tables */
+        .table-container {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        th {
+            background: #f8f9fa;
+            padding: 12px 14px;
+            text-align: left;
+            font-weight: 600;
+            color: #555;
+            border-bottom: 2px solid #eee;
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 10px 14px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        tr:hover { background: #f8f9ff; }
+
+        .amount { text-align: right; font-family: 'SF Mono', 'Consolas', monospace; }
+        .positive { color: #10b981; }
+        .negative { color: #ef4444; }
+        .zero { color: #999; }
+
+        .status-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .status-cocok { background: #d1fae5; color: #065f46; }
+        .status-erp { background: #fef3c7; color: #92400e; }
+        .status-plat { background: #fee2e2; color: #991b1b; }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 16px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 0;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            border: none;
+            background: none;
+            font-size: 14px;
+            font-weight: 500;
+            color: #888;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.2s;
+        }
+
+        .tab:hover { color: #333; }
+        .tab.active { color: #667eea; border-bottom-color: #667eea; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Loading */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading.show { display: block; }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #eee;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Folder info */
+        .folder-info {
+            background: #f0f7ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-top: 12px;
+            font-size: 13px;
+            color: #1e40af;
+        }
+
+        .folder-info .count {
+            font-weight: 600;
+        }
+
+        /* Modal */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            width: 90%;
+        }
+
+        /* Folder browser items */
+        .folder-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+            transition: background 0.15s;
+        }
+
+        .folder-item:hover {
+            background: #f0f7ff;
+        }
+
+        .folder-item:last-child {
+            border-bottom: none;
+        }
+
+        .folder-item .icon {
+            margin-right: 12px;
+            font-size: 18px;
+        }
+
+        .folder-item .name {
+            font-size: 14px;
+            flex: 1;
+        }
+
+        .folder-item .arrow {
+            color: #999;
+            font-size: 12px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .form-row { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        /* Hidden */
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔄 Rekon Online Food</h1>
+        <div style="display:flex;align-items:center;gap:16px;">
+            <p style="margin:0;">Reconcile transaksi ERP dengan laporan platform GoFood, GrabFood, ShopeeFood</p>
+            <a href="/config" id="configLink" style="color:white;text-decoration:none;padding:8px 16px;border:1px solid rgba(255,255,255,0.3);border-radius:6px;font-size:0.85rem;white-space:nowrap;">⚙️ Config Mapping</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Input Card -->
+        <div class="card">
+            <div class="card-title">
+                <span class="icon">📁</span> Data Source
+            </div>
+            
+            <div class="form-group full" style="margin-bottom: 16px;">
+                <label>Project Folder (tempat data ERP & laporan platform)</label>
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="projectPath" value="{{ default_path }}" placeholder="Path ke folder project" style="flex: 1;">
+                    <button type="button" class="btn btn-secondary" onclick="pasteFolderPath()" title="Paste folder path">
+                        📋 Paste Path
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="openFolderBrowser()" title="Browse folder">
+                        📂 Browse
+                    </button>
+                </div>
+                <div id="folderInfo" class="folder-info hidden"></div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Tanggal Awal</label>
+                    <input type="date" id="startDate">
+                </div>
+                <div class="form-group">
+                    <label>Tanggal Akhir</label>
+                    <input type="date" id="endDate">
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-secondary" onclick="scanFolder()">
+                    🔍 Scan Folder
+                </button>
+                <button class="btn btn-primary" id="btnProses" onclick="prosesRekon()" disabled>
+                    ⚡ Proses Rekonsiliasi
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Sedang memproses rekonsiliasi...</p>
+        </div>
+
+        <!-- Results -->
+        <div id="results" class="hidden">
+            <!-- Stats -->
+            <div class="stats-grid" id="statsGrid"></div>
+
+            <!-- Tabs -->
+            <div class="card">
+                <div class="tabs">
+                    <button class="tab active" onclick="showTab('summary')">📊 Rekap per Toko</button>
+                    <button class="tab" onclick="showTab('gofood')">🟢 GoFood</button>
+                    <button class="tab" onclick="showTab('grabfood')">🟡 GrabFood</button>
+                    <button class="tab" onclick="showTab('shopeefood')">🔴 ShopeeFood</button>
+                    <button class="tab" onclick="showTab('detail')">📋 Detail</button>
+                    <button class="tab" onclick="showTab('erpOnly')">⚠️ Hanya ERP</button>
+                    <button class="tab" onclick="showTab('platOnly')">❓ Hanya Platform</button>
+                </div>
+
+                <div id="tab-summary" class="tab-content active">
+                    <div class="table-container">
+                        <table id="summaryTable">
+                            <thead>
+                                <tr>
+                                    <th>Toko</th>
+                                    <th>Tanggal</th>
+                                    <th class="amount">ERP GoFood</th>
+                                    <th class="amount">ERP GrabFood</th>
+                                    <th class="amount">ERP ShopeeFood</th>
+                                    <th class="amount">Plat GoFood</th>
+                                    <th class="amount">Plat GrabFood</th>
+                                    <th class="amount">Plat ShopeeFood</th>
+                                    <th class="amount">Total ERP</th>
+                                    <th class="amount">Total Platform</th>
+                                    <th class="amount">Selisih</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- GoFood Tab -->
+                <div id="tab-gofood" class="tab-content">
+                    <div class="platform-header" style="padding:12px 16px;background:#e8f5e9;border-bottom:2px solid #4caf50;">
+                        <h3 style="margin:0;color:#2e7d32;">🟢 GoFood — Rekap per Toko per Tanggal</h3>
+                    </div>
+                    <div class="table-container">
+                        <table id="gofoodTable">
+                            <thead>
+                                <tr>
+                                    <th rowspan="2">Toko</th>
+                                    <th rowspan="2">Tanggal</th>
+                                    <th colspan="2" style="text-align:center;background:#e8f5e9;">Cocok</th>
+                                    <th colspan="2" style="text-align:center;background:#ffebee;">Hanya di ERP</th>
+                                    <th colspan="2" style="text-align:center;background:#fff3e0;">Hanya di Platform</th>
+                                </tr>
+                                <tr>
+                                    <th class="amount">Qty</th>
+                                    <th class="amount">Rp</th>
+                                    <th class="amount">Qty</th>
+                                    <th class="amount">Rp</th>
+                                    <th class="amount">Qty</th>
+                                    <th class="amount">Rp</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- GrabFood Tab -->
+                <div id="tab-grabfood" class="tab-content">
+                    <div class="platform-header" style="padding:12px 16px;background:#fff8e1;border-bottom:2px solid #f9a825;">
+                        <h3 style="margin:0;color:#f57f17;">🟡 GrabFood — Rekap per Toko per Tanggal</h3>
+                    </div>
+                    <div class="table-container">
+                        <table id="grabfoodTable">
+                            <thead>
+                                <tr>
+                                    <th rowspan="2">Toko</th>
+                                    <th rowspan="2">Tanggal</th>
+                                    <th colspan="2" style="text-align:center;background:#e8f5e9;">Cocok</th>
+                                    <th colspan="2" style="text-align:center;background:#ffebee;">Hanya di ERP</th>
+                                    <th colspan="2" style="text-align:center;background:#fff3e0;">Hanya di Platform</th>
+                                </tr>
+                                <tr>
+                                    <th class="amount">Qty</th>
+                                    <th class="amount">Rp</th>
+                                    <th class="amount">Qty</th>
+                                    <th class="amount">Rp</th>
+                                    <th class="amount">Qty</th>
+                                    <th class="amount">Rp</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ShopeeFood Tab -->
+                <div id="tab-shopeefood" class="tab-content">
+                    <div class="platform-header" style="padding:12px 16px;background:#fce4ec;border-bottom:2px solid #e53935;">
+                        <h3 style="margin:0;color:#c62828;">🔴 ShopeeFood — Rekap per Toko per Tanggal</h3>
+                    </div>
+                    <div class="table-container">
+                        <table id="shopeefoodTable">
+                            <thead>
+                                <tr>
+                                    <th rowspan="2">Toko</th>
+                                    <th rowspan="2">Tanggal</th>
+                                    <th colspan="2" style="text-align:center;background:#e8f5e9;">Cocok</th>
+                                    <th colspan="2" style="text-align:center;background:#ffebee;">Hanya di ERP</th>
+                                    <th colspan="2" style="text-align:center;background:#fff3e0;">Hanya di Platform</th>
+                                </tr>
+                                <tr>
+                                    <th class="amount">Qty</th>
+                                    <th class="amount">Rp</th>
+                                    <th class="amount">Qty</th>
+                                    <th class="amount">Rp</th>
+                                    <th class="amount">Qty</th>
+                                    <th class="amount">Rp</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="tab-detail" class="tab-content">
+                    <div class="table-container">
+                        <table id="detailTable">
+                            <thead>
+                                <tr>
+                                    <th>Status</th>
+                                    <th>Toko</th>
+                                    <th>Tanggal</th>
+                                    <th>Platform</th>
+                                    <th>No Faktur ERP</th>
+                                    <th>No Order Platform</th>
+                                    <th class="amount">ERP Amount</th>
+                                    <th class="amount">Platform Amount</th>
+                                    <th class="amount">Selisih</th>
+                                    <th>Keterangan</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="tab-erpOnly" class="tab-content">
+                    <div class="table-container">
+                        <table id="erpOnlyTable">
+                            <thead>
+                                <tr>
+                                    <th>Toko</th>
+                                    <th>Tanggal</th>
+                                    <th>Platform</th>
+                                    <th>No Faktur ERP</th>
+                                    <th class="amount">ERP Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="tab-platOnly" class="tab-content">
+                    <div class="table-container">
+                        <table id="platOnlyTable">
+                            <thead>
+                                <tr>
+                                    <th>Toko</th>
+                                    <th>Tanggal</th>
+                                    <th>Platform</th>
+                                    <th>No Order Platform</th>
+                                    <th class="amount">Platform Amount</th>
+                                    <th>Keterangan</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="btn-group" style="margin-top: 16px;">
+                    <button class="btn btn-success" onclick="exportExcel()">
+                        📥 Export ke Excel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Folder Browser Modal -->
+    <div id="folderBrowserModal" class="modal hidden" style="display: none;">
+        <div class="modal-content" style="max-width: 600px; max-height: 80vh;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #eee;">
+                <h3 style="margin: 0;">📂 Pilih Folder Project</h3>
+                <button onclick="closeFolderBrowser()" style="background: none; border: none; font-size: 24px; cursor: pointer;">×</button>
+            </div>
+            <div style="padding: 16px 20px;">
+                <div style="margin-bottom: 12px;">
+                    <label style="font-size: 13px; color: #555;">Path saat ini:</label>
+                    <div id="browserCurrentPath" style="font-family: monospace; font-size: 14px; padding: 8px; background: #f5f5f5; border-radius: 4px; word-break: break-all;"></div>
+                </div>
+                <div id="browserNav" style="margin-bottom: 12px;">
+                    <button class="btn btn-secondary" onclick="browseParent()" style="font-size: 13px; padding: 6px 12px;">⬆️ Kembali</button>
+                    <button class="btn btn-secondary" onclick="browseHome()" style="font-size: 13px; padding: 6px 12px;">🏠 Home</button>
+                </div>
+                <div id="browserFolders" style="max-height: 300px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; background: #fafafa;"></div>
+                <div class="btn-group" style="margin-top: 16px; justify-content: flex-end;">
+                    <button class="btn btn-secondary" onclick="closeFolderBrowser()">Batal</button>
+                    <button class="btn btn-primary" onclick="selectCurrentFolder()">✓ Pilih Folder Ini</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let lastResult = null;
+        let scanReady = false;
+
+        function resetScanState() {
+            scanReady = false;
+            document.getElementById('btnProses').disabled = true;
+            document.getElementById('results').classList.add('hidden');
+        }
+
+        function formatRupiah(num) {
+            if (num === 0 || num === null || num === undefined) return '-';
+            return 'Rp ' + num.toLocaleString('id-ID');
+        }
+
+        function formatRupiahSigned(num) {
+            if (num === 0 || num === null || num === undefined) return '-';
+            const prefix = num > 0 ? '+' : '';
+            return prefix + 'Rp ' + num.toLocaleString('id-ID');
+        }
+
+        function amountClass(num) {
+            if (num > 0) return 'amount positive';
+            if (num < 0) return 'amount negative';
+            return 'amount zero';
+        }
+
+        function statusBadge(status) {
+            const cls = {
+                'COCOK': 'status-cocok',
+                'DI ERP SAJA': 'status-erp',
+                'DI PLATFORM SAJA': 'status-plat'
+            }[status] || '';
+            return `<span class="status-badge ${cls}">${status}</span>`;
+        }
+
+        function cleanPath(path) {
+            return (path || '').trim().replace(/^["']|["']$/g, '');
+        }
+
+        function setProjectPath(path) {
+            const cleaned = cleanPath(path);
+            document.getElementById('projectPath').value = cleaned;
+            rememberProjectPath(cleaned);
+            resetScanState();
+        }
+
+        async function pasteFolderPath() {
+            try {
+                const text = await navigator.clipboard.readText();
+                if (text) setProjectPath(text);
+            } catch (e) {
+                const text = prompt('Paste folder path di sini:');
+                if (text) setProjectPath(text);
+            }
+        }
+
+        async function scanFolder() {
+            const path = cleanPath(document.getElementById('projectPath').value);
+            document.getElementById('projectPath').value = path;
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            rememberProjectPath(path);
+            const info = document.getElementById('folderInfo');
+
+            resetScanState();
+
+            if (!startDate || !endDate) {
+                info.innerHTML = '⚠️ Pilih tanggal awal dan akhir dulu, baru scan file.';
+                info.className = 'folder-info';
+                info.style.background = '#fff7ed';
+                info.style.borderColor = '#fdba74';
+                info.style.color = '#9a3412';
+                info.classList.remove('hidden');
+                return;
+            }
+            
+            try {
+                const res = await fetch('/api/scan', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        project_path: path,
+                        start_date: startDate,
+                        end_date: endDate
+                    })
+                });
+                const data = await res.json();
+                
+                if (data.error) {
+                    info.innerHTML = '❌ ' + data.error;
+                    info.className = 'folder-info';
+                    info.style.background = '#fee2e2';
+                    info.style.borderColor = '#fca5a5';
+                    info.style.color = '#991b1b';
+                    info.classList.remove('hidden');
+                    return;
+                }
+
+                const rows = data.checks.map(item => {
+                    const icon = item.found ? '✅' : (item.required ? '❌' : '⚠️');
+                    const unit = item.unit || 'transaksi';
+                    const files = item.files.length
+                        ? item.files.join(', ')
+                        : (item.required ? 'Tidak ditemukan untuk tanggal ini' : 'Tidak ada file untuk tanggal ini');
+                    const label = item.required ? 'wajib' : 'opsional';
+                    return `
+                        <div style="margin-top:8px;">
+                            <strong>${icon} ${item.name}</strong>
+                            <span style="font-size:0.78rem;">(${label})</span>
+                            <span class="count">${item.rows}</span> ${unit}<br>
+                            <span style="font-size:0.88rem;">${files}</span>
+                        </div>
+                    `;
+                }).join('');
+
+                let html = `<strong>${data.ready ? '✅ File wajib siap, rekon bisa dijalankan' : '⚠️ File wajib belum lengkap'}</strong><br>`;
+                html += `Periode: ${data.periode}`;
+                html += rows;
+
+                info.innerHTML = html;
+                info.style.background = data.ready ? '#f0fdf4' : '#fff7ed';
+                info.style.borderColor = data.ready ? '#86efac' : '#fdba74';
+                info.style.color = data.ready ? '#166534' : '#9a3412';
+                info.classList.remove('hidden');
+                scanReady = data.ready;
+                document.getElementById('btnProses').disabled = !scanReady;
+            } catch (e) {
+                const msg = (e.message === 'Load failed' || e.message === 'Failed to fetch')
+                    ? 'Server aplikasi tidak bisa dihubungi. Tutup lalu buka ulang aplikasi Rekon.'
+                    : e.message;
+                info.innerHTML = '❌ Error: ' + msg;
+                info.className = 'folder-info';
+                info.style.background = '#fee2e2';
+                info.style.borderColor = '#fca5a5';
+                info.style.color = '#991b1b';
+                info.classList.remove('hidden');
+            }
+        }
+
+        // Folder Browser Functions
+        let currentBrowserPath = '{{ default_path }}';
+
+        async function openFolderBrowser() {
+            currentBrowserPath = cleanPath(document.getElementById('projectPath').value);
+            try {
+                const res = await fetch('/api/select-folder', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({path: currentBrowserPath})
+                });
+                const data = await res.json();
+
+                if (data.path) {
+                    setProjectPath(data.path);
+                    return;
+                }
+
+                if (data.cancelled) return;
+            } catch (e) {
+                console.warn('Native folder picker failed, using web fallback:', e);
+            }
+
+            const modal = document.getElementById('folderBrowserModal');
+            modal.classList.remove('hidden');
+            modal.style.display = 'flex';
+            browseTo(currentBrowserPath);
+        }
+
+        function closeFolderBrowser() {
+            const modal = document.getElementById('folderBrowserModal');
+            modal.style.display = 'none';
+            modal.classList.add('hidden');
+        }
+
+        async function browseTo(path) {
+            try {
+                const res = await fetch('/api/browse', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({path: path})
+                });
+                const data = await res.json();
+                
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+
+                currentBrowserPath = data.current_path;
+                document.getElementById('browserCurrentPath').textContent = data.current_path;
+                
+                // Render folders
+                const foldersDiv = document.getElementById('browserFolders');
+                let html = '';
+                
+                if (data.directories.length === 0) {
+                    html = '<div style="padding: 20px; text-align: center; color: #888;">Tidak ada sub-folder</div>';
+                } else {
+                    data.directories.forEach(dir => {
+                        html += `
+                            <div class="folder-item" onclick="browseTo('${dir.path.replace(/'/g, "\\'")}')">
+                                <span class="icon">📁</span>
+                                <span class="name">${dir.name}</span>
+                                <span class="arrow">→</span>
+                            </div>
+                        `;
+                    });
+                }
+                
+                foldersDiv.innerHTML = html;
+            } catch (e) {
+                console.error('Browse error:', e);
+            }
+        }
+
+        function browseParent() {
+            if (currentBrowserPath && currentBrowserPath !== '/') {
+                const parent = currentBrowserPath.split('/').slice(0, -1).join('/') || '/';
+                browseTo(parent);
+            }
+        }
+
+        function browseHome() {
+            browseTo('{{ default_path }}');
+        }
+
+        function selectCurrentFolder() {
+            setProjectPath(currentBrowserPath);
+            closeFolderBrowser();
+        }
+
+        async function prosesRekon() {
+            const path = cleanPath(document.getElementById('projectPath').value);
+            document.getElementById('projectPath').value = path;
+            rememberProjectPath(path);
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+
+            if (!startDate || !endDate) {
+                alert('Tanggal awal dan akhir harus diisi!');
+                return;
+            }
+
+            if (!scanReady) {
+                alert('Scan file berdasarkan tanggal dulu sebelum proses rekonsiliasi.');
+                return;
+            }
+
+            document.getElementById('loading').classList.add('show');
+            document.getElementById('results').classList.add('hidden');
+            document.getElementById('btnProses').disabled = true;
+
+            try {
+                const res = await fetch('/api/rekon', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        project_path: path,
+                        start_date: startDate,
+                        end_date: endDate
+                    })
+                });
+                const data = await res.json();
+
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+
+                lastResult = data;
+                renderResults(data);
+                document.getElementById('results').classList.remove('hidden');
+            } catch (e) {
+                alert('Error: ' + e.message);
+            } finally {
+                document.getElementById('loading').classList.remove('show');
+                document.getElementById('btnProses').disabled = false;
+            }
+        }
+
+        function renderResults(data) {
+            // Stats
+            const s = data.stats;
+            document.getElementById('statsGrid').innerHTML = `
+                <div class="stat-card matched">
+                    <div class="value">${s.matched}</div>
+                    <div class="label">Cocok</div>
+                </div>
+                <div class="stat-card erp-only">
+                    <div class="value">${s.erp_only}</div>
+                    <div class="label">Hanya di ERP</div>
+                </div>
+                <div class="stat-card plat-only">
+                    <div class="value">${s.platform_only}</div>
+                    <div class="label">Hanya di Platform</div>
+                </div>
+                <div class="stat-card selisih">
+                    <div class="value">${formatRupiah(s.selisih)}</div>
+                    <div class="label">Selisih Total</div>
+                </div>
+            `;
+
+            // Summary table
+            const stb = document.querySelector('#summaryTable tbody');
+            stb.innerHTML = data.summary.map(r => `
+                <tr>
+                    <td><strong>${r.Toko}</strong></td>
+                    <td>${r.Tanggal}</td>
+                    <td class="amount">${formatRupiah(r['ERP GoFood'])}</td>
+                    <td class="amount">${formatRupiah(r['ERP GrabFood'])}</td>
+                    <td class="amount">${formatRupiah(r['ERP ShopeeFood'])}</td>
+                    <td class="amount">${formatRupiah(r['Platform GoFood'])}</td>
+                    <td class="amount">${formatRupiah(r['Platform GrabFood'])}</td>
+                    <td class="amount">${formatRupiah(r['Platform ShopeeFood'])}</td>
+                    <td class="amount"><strong>${formatRupiah(r['Total ERP'])}</strong></td>
+                    <td class="amount"><strong>${formatRupiah(r['Total Platform'])}</strong></td>
+                    <td class="${amountClass(r['Selisih Total'])}"><strong>${formatRupiahSigned(r['Selisih Total'])}</strong></td>
+                </tr>
+            `).join('');
+
+            // Platform summary tables (per platform per toko per tanggal)
+            function buildPlatformTable(platformName, tableId) {
+                const detail = data.detail.filter(r => r.Platform === platformName);
+                // Group by (store, date)
+                const groups = {};
+                detail.forEach(r => {
+                    const key = `${r.Toko}|||${r.Tanggal}`;
+                    if (!groups[key]) groups[key] = { toko: r.Toko, tanggal: r.Tanggal, cocok: [], erpOnly: [], platOnly: [] };
+                    if (r.Status === 'COCOK') groups[key].cocok.push(r);
+                    else if (r.Status === 'DI ERP SAJA') groups[key].erpOnly.push(r);
+                    else if (r.Status === 'DI PLATFORM SAJA') groups[key].platOnly.push(r);
+                });
+
+                const rows = Object.values(groups).sort((a, b) => a.toko.localeCompare(b.toko) || a.tanggal.localeCompare(b.tanggal));
+
+                // Also compute subtotal
+                let totalCocokQty = 0, totalCocokRp = 0;
+                let totalErpQty = 0, totalErpRp = 0;
+                let totalPlatQty = 0, totalPlatRp = 0;
+
+                let html = rows.map(r => {
+                    const cocokQty = r.cocok.length;
+                    const cocokRp = r.cocok.reduce((s, x) => s + (x['ERP Amount'] || 0), 0);
+                    const erpQty = r.erpOnly.length;
+                    const erpRp = r.erpOnly.reduce((s, x) => s + (x['ERP Amount'] || 0), 0);
+                    const platQty = r.platOnly.length;
+                    const platRp = r.platOnly.reduce((s, x) => s + (x['Platform Amount'] || 0), 0);
+
+                    totalCocokQty += cocokQty; totalCocokRp += cocokRp;
+                    totalErpQty += erpQty; totalErpRp += erpRp;
+                    totalPlatQty += platQty; totalPlatRp += platRp;
+
+                    return `<tr>
+                        <td><strong>${r.toko}</strong></td>
+                        <td>${r.tanggal}</td>
+                        <td class="amount">${cocokQty}</td>
+                        <td class="amount">${cocokQty > 0 ? formatRupiah(cocokRp) : '-'}</td>
+                        <td class="amount">${erpQty > 0 ? erpQty : ''}</td>
+                        <td class="amount">${erpRp > 0 ? formatRupiah(erpRp) : ''}</td>
+                        <td class="amount">${platQty > 0 ? platQty : ''}</td>
+                        <td class="amount">${platRp > 0 ? formatRupiah(platRp) : ''}</td>
+                    </tr>`;
+                }).join('');
+
+                // Subtotal row
+                html += `<tr style="background:#f0f4f8;font-weight:bold;border-top:2px solid #ccc;">
+                    <td colspan="2">SUBTOTAL ${platformName}</td>
+                    <td class="amount">${totalCocokQty}</td>
+                    <td class="amount">${totalCocokRp > 0 ? formatRupiah(totalCocokRp) : '-'}</td>
+                    <td class="amount">${totalErpQty > 0 ? totalErpQty : ''}</td>
+                    <td class="amount">${totalErpRp > 0 ? formatRupiah(totalErpRp) : ''}</td>
+                    <td class="amount">${totalPlatQty > 0 ? totalPlatQty : ''}</td>
+                    <td class="amount">${totalPlatRp > 0 ? formatRupiah(totalPlatRp) : ''}</td>
+                </tr>`;
+
+                document.querySelector(`#${tableId} tbody`).innerHTML = html;
+            }
+
+            buildPlatformTable('GoFood', 'gofoodTable');
+            buildPlatformTable('GrabFood', 'grabfoodTable');
+            buildPlatformTable('ShopeeFood', 'shopeefoodTable');
+
+            // Detail table
+            const dtb = document.querySelector('#detailTable tbody');
+            dtb.innerHTML = data.detail.map(r => `
+                <tr>
+                    <td>${statusBadge(r.Status)}</td>
+                    <td>${r.Toko}</td>
+                    <td>${r.Tanggal}</td>
+                    <td>${r.Platform}</td>
+                    <td>${r['No Faktur ERP'] || '-'}</td>
+                    <td>${r['No Order Platform'] || '-'}</td>
+                    <td class="amount">${formatRupiah(r['ERP Amount'])}</td>
+                    <td class="amount">${formatRupiah(r['Platform Amount'])}</td>
+                    <td class="${amountClass(r.Selisih)}">${formatRupiahSigned(r.Selisih)}</td>
+                    <td>${r.Keterangan || '-'}</td>
+                </tr>
+            `).join('');
+
+            // ERP Only
+            const erpOnly = data.detail.filter(r => r.Status === 'DI ERP SAJA');
+            const eotb = document.querySelector('#erpOnlyTable tbody');
+            eotb.innerHTML = erpOnly.map(r => `
+                <tr>
+                    <td>${r.Toko}</td>
+                    <td>${r.Tanggal}</td>
+                    <td>${r.Platform}</td>
+                    <td>${r['No Faktur ERP'] || '-'}</td>
+                    <td class="amount">${formatRupiah(r['ERP Amount'])}</td>
+                </tr>
+            `).join('');
+
+            // Platform Only
+            const platOnly = data.detail.filter(r => r.Status === 'DI PLATFORM SAJA');
+            const pltb = document.querySelector('#platOnlyTable tbody');
+            pltb.innerHTML = platOnly.map(r => `
+                <tr>
+                    <td>${r.Toko}</td>
+                    <td>${r.Tanggal}</td>
+                    <td>${r.Platform}</td>
+                    <td>${r['No Order Platform'] || '-'}</td>
+                    <td class="amount">${formatRupiah(r['Platform Amount'])}</td>
+                    <td>${r.Keterangan || '-'}</td>
+                </tr>
+            `).join('');
+        }
+
+        function showTab(name) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById('tab-' + name).classList.add('active');
+        }
+
+        async function exportExcel() {
+            if (!lastResult) return;
+
+            const path = cleanPath(document.getElementById('projectPath').value);
+            document.getElementById('projectPath').value = path;
+            rememberProjectPath(path);
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+
+            try {
+                const res = await fetch('/api/export', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        project_path: path,
+                        start_date: startDate,
+                        end_date: endDate
+                    })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    alert('✅ File Excel berhasil disimpan ke:\n' + data.path);
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        }
+
+        // Set default dates
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('startDate').value = today;
+        document.getElementById('endDate').value = today;
+
+        function rememberProjectPath(path) {
+            if (!path) return;
+            localStorage.setItem('rekonProjectPath', path);
+            document.getElementById('configLink').href = '/config?project_path=' + encodeURIComponent(path);
+        }
+
+        const savedProjectPath = localStorage.getItem('rekonProjectPath');
+        if (savedProjectPath) {
+            document.getElementById('projectPath').value = cleanPath(savedProjectPath);
+        }
+        document.getElementById('projectPath').addEventListener('input', (event) => {
+            rememberProjectPath(cleanPath(event.target.value));
+            resetScanState();
+        });
+        document.getElementById('startDate').addEventListener('change', resetScanState);
+        document.getElementById('endDate').addEventListener('change', resetScanState);
+        rememberProjectPath(cleanPath(document.getElementById('projectPath').value));
+    </script>
+</body>
+</html>

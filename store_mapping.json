@@ -1,0 +1,144 @@
+{
+    "_comment": "Mapping nama toko antara ERP dan Platform. Tambah toko baru di sini.",
+    "_usage": {
+        "folder": "Nama folder di Grabfood/ atau GoFood/ (UPPERCASE)",
+        "erp1": "Nama di ERP File 1 (Penerimaan) - null jika tidak ada",
+        "erp2": "Nama di ERP File 2 (Laporan Transaksi) - null jika tidak ada",
+        "gof_merchant_id": "Merchant ID GoFood untuk identifikasi toko",
+        "display": "Nama tampilan yang mudah dibaca",
+        "grabfood_store": "Nama kolom 'Store Name' di file GrabFood - null jika tidak ada",
+        "shopeefood_store": "Nama kolom 'Store Name' di file ShopeeFood - null jika tidak ada"
+    },
+    "stores": {
+        "BINTARA": {
+            "erp1": "Procil Kios Bintara",
+            "erp2": "Bintara",
+            "display": "Bintara",
+            "grabfood_store": "Procil Bubur Tim Organik - Kios Bintara",
+            "shopeefood_store": "Procil Bubur Tim Organik - Kios Bintara",
+            "gof_merchant_id": "G847824388"
+        },
+        "HARAPAN JAYA": {
+            "erp1": "Procil Kios Harapan Jaya",
+            "erp2": null,
+            "display": "Harapan Jaya",
+            "grabfood_store": "Procil Bubur Tim Organik - Kios Harapan Jaya",
+            "shopeefood_store": null,
+            "gof_merchant_id": "G443767529"
+        },
+        "MGT": {
+            "erp1": null,
+            "erp2": "MGT",
+            "display": "Mutiara Gading Timur (MGT)",
+            "grabfood_store": "Procil Bubur Tim Organik - Kios Mutiara Gading Timur",
+            "shopeefood_store": "Procil Bubur Tim Organik - Kios MGT",
+            "gof_merchant_id": "G276392539"
+        },
+        "MUCHTAR TABRANI": {
+            "erp1": "Procil Kios Muchtar Tabrani",
+            "erp2": null,
+            "display": "Muchtar Tabrani",
+            "grabfood_store": "Procil Bubur Tim Organik - Kios Muchtar Tabrani",
+            "shopeefood_store": "Procil Bubur Tim Organik - Kios Muchtar Tabrani",
+            "gof_merchant_id": "G010053163"
+        },
+        "PEKAYON": {
+            "erp1": null,
+            "erp2": "Pekayon",
+            "display": "Pekayon",
+            "grabfood_store": "Procil Bubur Tim Organik - Kios Pekayon Jaya",
+            "shopeefood_store": "Procil Bubur Tim Organik - Kios Pekayon Jaya",
+            "gof_merchant_id": "G883529396"
+        },
+        "PERUMNAS 1": {
+            "erp1": "Procil Kios Perumnas 1",
+            "erp2": null,
+            "display": "Perumnas 1",
+            "grabfood_store": "Procil Bubur Tim Organik - Kios Perumnas 1",
+            "shopeefood_store": "Procil Bubur Tim Organik - Kios Perumnas 1",
+            "gof_merchant_id": "G567940010"
+        },
+        "SEROJA": {
+            "erp1": "Procil Kios Seroja",
+            "erp2": null,
+            "display": "Seroja",
+            "grabfood_store": "Procil Bubur Tim Organik - Kios Seroja",
+            "shopeefood_store": "Procil Bubur Tim Organik - Kios Seroja",
+            "gof_merchant_id": "G803824393"
+        },
+        "WISMA ASRI": {
+            "erp1": "Procil Kios Wisma Asri",
+            "erp2": null,
+            "display": "Wisma Asri",
+            "grabfood_store": "Procil Bubur Tim Organik - Kios Wisma Asri",
+            "shopeefood_store": "Procil Bubur Tim Organik - Kios Wisma Asri"
+        },
+        "WISMA JAYA": {
+            "erp1": "Procil Kios Wismajaya",
+            "erp2": null,
+            "display": "Wisma Jaya",
+            "grabfood_store": "Procil Bubur Tim Organik - Kios Wisma Jaya",
+            "shopeefood_store": "Procil Bubur Tim Organik - Kios Wisma Jaya",
+            "gof_merchant_id": "G457358428"
+        },
+        "JATIMAKMUR": {
+            "erp1": null,
+            "erp2": "Jati Makmur",
+            "display": "Jati Makmur",
+            "grabfood_store": null,
+            "shopeefood_store": "Procil Bubur Tim Organik - Kios Jatimakmur",
+            "gof_merchant_id": "G947005876"
+        },
+        "RAWA KALONG": {
+            "erp1": "Procil Kios Rawa Kalong",
+            "erp2": null,
+            "display": "Rawa Kalong",
+            "grabfood_store": "Procil Bubur Tim Organik - Kios Rawakalong",
+            "shopeefood_store": null,
+            "gof_merchant_id": "G064623180"
+        },
+        "TANAH MERDEKA": {
+            "erp1": "Procil Kios Tanah Merdeka",
+            "erp2": null,
+            "display": "Tanah Merdeka",
+            "grabfood_store": null,
+            "shopeefood_store": "Procil Bubur Tim Organik - Kios Tanah Merdeka",
+            "gof_merchant_id": "G280855018"
+        },
+        "RAWA LUMBU": {
+            "erp1": "Procil Kios Rawa Lumbu",
+            "erp2": null,
+            "display": "Rawa Lumbu",
+            "grabfood_store": "Procil Bubur Tim Organik - Kios Rawalumbu",
+            "shopeefood_store": null
+        },
+        "PASAR KECAPI": {
+            "erp1": "Procil Kios Pasar Kecapi",
+            "erp2": null,
+            "display": "Pasar Kecapi",
+            "grabfood_store": null,
+            "shopeefood_store": "Procil Bubur Tim Organik - Kios Pasar Kecapi"
+        },
+        "CILINCING": {
+            "erp1": null,
+            "erp2": "Cilincing",
+            "display": "Cilincing",
+            "grabfood_store": null,
+            "shopeefood_store": null
+        },
+        "KAYURINGIN": {
+            "erp1": null,
+            "erp2": "Kayuringin",
+            "display": "Kayuringin",
+            "grabfood_store": null,
+            "shopeefood_store": null
+        },
+        "G692441385": {
+            "erp1": null,
+            "erp2": null,
+            "display": "G692441385",
+            "grabfood_store": null,
+            "shopeefood_store": null
+        }
+    }
+}
