@@ -105,9 +105,37 @@ def test_grabfood_csv_is_scanned_and_loaded():
     assert rows[0]["amount"] == 23000
 
 
+def test_platform_mapping_requires_exact_store_name():
+    report = rekon.pd.DataFrame([{
+        "Store Name": "Procil Bubur Tim Organik - Kios Pekayon Barat",
+        "Created On": "2026-06-11 10:00:00",
+        "Transaction ID": "GRAB-PEKAYON-BARAT",
+        "Net Sales": 23000,
+    }])
+
+    with patch.object(rekon, "find_platform_reports", return_value=[{
+        "path": "grab-pekayon.xlsx",
+        "filename": "grab-pekayon.xlsx",
+    }]), patch.object(rekon.pd, "read_excel", return_value=report):
+        rows = rekon.load_grabfood_reports(".", date(2026, 6, 11), date(2026, 6, 11))
+
+    assert rekon.map_platform_store(
+        "Procil Bubur Tim Organik - Kios Pekayon Jaya", "grabfood"
+    ) == "PEKAYON"
+    assert rows[0]["store_folder"] == "UNMAPPED"
+    assert "belum dimapping exact" in rows[0]["data_issue"]
+
+    matched, unmatched_erp, unmatched_platform = rekon.reconcile(
+        [{"store_folder": "PEKAYON", "date": date(2026, 6, 11), "amount": 23000}], rows
+    )
+    assert matched == []
+    assert len(unmatched_erp) == len(unmatched_platform) == 1
+
+
 if __name__ == "__main__":
     test_gofood_multi_outlet_with_title_row_and_merged_merchant_id()
     test_platform_scan_includes_top_level_bulk_file()
     test_gofood_loader_repairs_reversed_xlsx_cell_references()
     test_grabfood_csv_is_scanned_and_loaded()
+    test_platform_mapping_requires_exact_store_name()
     print("ok")

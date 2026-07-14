@@ -44,13 +44,13 @@ jobs:
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RekonOnlineFoodSetup-1.03
-          path: dist/installer/RekonOnlineFoodSetup-1.03.exe
+          name: RekonOnlineFoodSetup-1.04
+          path: dist/installer/RekonOnlineFoodSetup-1.04.exe
           if-no-files-found: error
 
       - name: Upload portable app artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RekonOnlineFood-1.03-portable
-          path: dist/RekonOnlineFood-1.03
+          name: RekonOnlineFood-1.04-portable
+          path: dist/RekonOnlineFood-1.04
           if-no-files-found: error

@@ -366,12 +366,19 @@ def scan_folders():
             project_path, platform, start_date, end_date, extensions=extensions,
             scan_all_folders=scan_all_folders,
         )]
+        unmapped = sorted({
+            str(row.get("merchant_id") or row.get("store_platform") or "").strip()
+            for row in rows
+            if "belum dimapping exact" in str(row.get("data_issue", ""))
+        } - {""})
         return {
             "name": name,
             "required": False,
             "found": bool(rows),
             "files": files_from(rows) or sorted(set(report_files)),
             "rows": len(rows),
+            "unmapped": unmapped,
+            "unmapped_label": "Merchant ID" if platform == "GoFood" else "Outlet",
             "note": (
                 "File ditemukan, tetapi tidak ada transaksi yang cocok dengan periode atau formatnya tidak terbaca."
                 if report_files and not rows else ""

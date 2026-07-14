@@ -104,11 +104,30 @@ for folder, info in STORE_MAP.items():
 UNMAPPED_STORES = []
 
 
+def map_platform_store(name, source):
+    """Map a platform identifier only through its platform-specific exact mapping."""
+    lookup = {
+        "grabfood": GRABFOOD_STORE_TO_FOLDER,
+        "gofood": GOFOOD_MERCHANT_TO_FOLDER,
+        "shopeefood": SHOPEEFOOD_STORE_TO_FOLDER,
+    }.get(source.lower(), {})
+    value = str(name).strip() if name is not None else ""
+    if not value:
+        return "UNMAPPED"
+    for mapped_value, folder in lookup.items():
+        if str(mapped_value).casefold() == value.casefold():
+            return folder
+    return "UNMAPPED"
+
+
 def auto_detect_store(name, source="unknown"):
     """
     Auto-detect store from name. If not in mapping, try fuzzy match.
     Returns (folder_name, is_new).
     """
+    if source.lower() in {"grabfood", "gofood", "shopeefood"}:
+        return map_platform_store(name, source), False
+
     if not name or name == "nan":
         return "UNKNOWN", False
 
@@ -702,7 +721,11 @@ def load_grabfood_reports(project_path, start_date, end_date):
                 continue
 
             store_name = row_value(row, "Store Name") or default_store_name
-            folder, is_new = auto_detect_store(store_name, "grabfood")
+            folder = map_platform_store(store_name, "grabfood")
+            data_issue = (
+                f"Outlet GrabFood belum dimapping exact: {store_name or '-'}"
+                if folder == "UNMAPPED" else None
+            )
 
             results.append({
                 "source": "Grabfood",
@@ -710,6 +733,7 @@ def load_grabfood_reports(project_path, start_date, end_date):
                 "platform": "GrabFood",
                 "store_folder": folder,
                 "store_platform": store_name,
+                "data_issue": data_issue,
                 "transaction_id": str(row.get("Transaction ID", "")),
                 "short_order_id": str(row.get("Short Order ID", "")),
                 "amount": float(row.get("Net Sales", 0) or 0),
@@ -748,7 +772,6 @@ def load_gofood_reports(project_path, start_date, end_date):
         if df.empty:
             continue
 
-        filename_store = extract_store_from_gofilename(rpt["filename"])
         if "Waktu transaksi" not in df.columns:
             print(f"  [WARN] {rpt['filename']}: kolom 'Waktu transaksi' tidak ditemukan")
             continue
@@ -773,16 +796,16 @@ def load_gofood_reports(project_path, start_date, end_date):
                 continue
 
             merchant_id = row_value(row, "Merchant ID")
-            folder_store, is_new = auto_detect_store(merchant_id, "gofood")
+            folder_store = map_platform_store(merchant_id, "gofood")
             outlet_name = next(
                 (row_value(row, column) for column in ("Nama Outlet", "Nama Merchant")
                  if column in df.columns and row_value(row, column)),
                 "",
             )
-            if (folder_store == "UNKNOWN" or is_new) and outlet_name:
-                folder_store, is_new = auto_detect_store(outlet_name, "gofood")
-            if folder_store == "UNKNOWN" or is_new:
-                folder_store = filename_store
+            data_issue = (
+                f"Merchant ID GoFood belum dimapping exact: {merchant_id or outlet_name or '-'}"
+                if folder_store == "UNMAPPED" else None
+            )
 
             results.append({
                 "source": "GoFood",
@@ -790,6 +813,7 @@ def load_gofood_reports(project_path, start_date, end_date):
                 "platform": "GoFood",
                 "store_folder": folder_store,
                 "store_platform": outlet_name or folder_store,
+                "data_issue": data_issue,
                 "order_id": str(row.get("Nomor pesanan", "")),
                 "merchant_id": merchant_id,
                 "penjualan": float(row.get("Penjualan", 0) or 0),
@@ -886,7 +910,9 @@ def load_shopeefood_reports(project_path, start_date, end_date):
                 )
             report_amount = overall_amount if data_issue and overall_amount is not None else amount
             store_name = row_value(row, "Store Name") or default_store_name
-            folder, is_new = auto_detect_store(store_name, "shopeefood")
+            folder = map_platform_store(store_name, "shopeefood")
+            if folder == "UNMAPPED":
+                data_issue = f"Outlet ShopeeFood belum dimapping exact: {store_name or '-'}"
 
             results.append({
                 "source": "ShopeeFood",
