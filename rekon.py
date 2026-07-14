@@ -475,7 +475,7 @@ def load_erp_transaksi(filepath, start_date, end_date):
     return results
 
 
-def find_platform_reports(project_path, platform, start_date, end_date):
+def find_platform_reports(project_path, platform, start_date, end_date, extensions=(".xlsx",)):
     """
     Find platform report files that cover the date range.
     Reports are in: Raw Data Transaksi/<platform>/<YYYY-MM-DD>/<filename>.xlsx.
@@ -485,6 +485,11 @@ def find_platform_reports(project_path, platform, start_date, end_date):
     if not os.path.isdir(base_dir):
         return []
 
+    extensions = tuple(extension.lower() for extension in extensions)
+
+    def is_report_file(filename):
+        return filename.lower().endswith(extensions) and not filename.startswith("~$")
+
     found_files = []
     scan_roots = date_scoped_roots(base_dir, start_date, end_date)
 
@@ -492,7 +497,7 @@ def find_platform_reports(project_path, platform, start_date, end_date):
     # folder. Include those files even when dated subfolders already exist.
     if scan_roots != [base_dir]:
         for f in os.listdir(base_dir):
-            if f.lower().endswith(".xlsx") and not f.startswith("~$"):
+            if is_report_file(f):
                 found_files.append({
                     "path": os.path.join(base_dir, f),
                     "filename": f,
@@ -506,7 +511,7 @@ def find_platform_reports(project_path, platform, start_date, end_date):
             folder_date = parse_report_folder_date(folder_name)
 
             for f in files:
-                if f.lower().endswith(".xlsx") and not f.startswith("~$"):
+                if is_report_file(f):
                     found_files.append({
                         "path": os.path.join(root, f),
                         "filename": f,
@@ -595,19 +600,31 @@ def parse_gofood_datetime(value):
     return pd.to_datetime(value, errors="coerce", dayfirst=not iso_format)
 
 
+def read_grabfood_report(filepath):
+    """Read a standard GrabFood Excel or CSV transaction export."""
+    if filepath.lower().endswith(".csv"):
+        try:
+            return pd.read_csv(filepath, encoding="utf-8-sig", sep=None, engine="python")
+        except UnicodeDecodeError:
+            return pd.read_csv(filepath, encoding="latin-1", sep=None, engine="python")
+    return pd.read_excel(filepath, header=0)
+
+
 def load_grabfood_reports(project_path, start_date, end_date):
     """
     Load all Grabfood reports within date range.
     Returns list of dicts with standardized fields.
     """
-    reports = find_platform_reports(project_path, "Grabfood", start_date, end_date)
+    reports = find_platform_reports(
+        project_path, "Grabfood", start_date, end_date, extensions=(".xlsx", ".csv")
+    )
     if not reports:
         return []
 
     results = []
     for rpt in reports:
         try:
-            df = pd.read_excel(rpt["path"], header=0)
+            df = read_grabfood_report(rpt["path"])
         except Exception as e:
             print(f"  [WARN] Gagal baca {rpt['filename']}: {e}")
             continue

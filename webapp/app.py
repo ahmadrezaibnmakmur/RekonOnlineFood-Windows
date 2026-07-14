@@ -357,9 +357,9 @@ def scan_folders():
     def files_from(rows):
         return sorted({r.get("source_file", "") for r in rows if r.get("source_file")})
 
-    def platform_check(name, platform, rows):
+    def platform_check(name, platform, rows, extensions=(".xlsx",)):
         report_files = [report["filename"] for report in find_platform_reports(
-            project_path, platform, start_date, end_date
+            project_path, platform, start_date, end_date, extensions=extensions
         )]
         return {
             "name": name,
@@ -390,7 +390,7 @@ def scan_folders():
             "files": files_from(transaksi_rows),
             "rows": len(transaksi_rows),
         },
-        platform_check("GrabFood", "Grabfood", grabfood_rows),
+        platform_check("GrabFood", "Grabfood", grabfood_rows, extensions=(".xlsx", ".csv")),
         platform_check("GoFood", "GoFood", gofood_rows),
         platform_check("ShopeeFood", "ShopeeFood", shopeefood_rows),
     ]

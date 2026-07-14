@@ -47,7 +47,33 @@ def test_platform_scan_includes_top_level_bulk_file():
     }
 
 
+def test_grabfood_csv_is_scanned_and_loaded():
+    report = rekon.pd.DataFrame([{
+        "Store Name": "Procil Bubur Tim Organik - Kios Bintara",
+        "Created On": "2026-06-11 10:00:00",
+        "Transaction ID": "GRAB-1",
+        "Net Sales": 23000,
+    }])
+
+    with TemporaryDirectory() as temporary_dir:
+        base = Path(temporary_dir) / "Raw Data Transaksi" / "Grabfood" / "2026-06-11"
+        base.mkdir(parents=True)
+        (base / "grab-report.CSV").touch()
+        reports = rekon.find_platform_reports(
+            temporary_dir, "Grabfood", date(2026, 6, 11), date(2026, 6, 11),
+            extensions=(".xlsx", ".csv"),
+        )
+
+    with patch.object(rekon, "find_platform_reports", return_value=reports), \
+            patch.object(rekon.pd, "read_csv", return_value=report):
+        rows = rekon.load_grabfood_reports(".", date(2026, 6, 11), date(2026, 6, 11))
+
+    assert [row["store_folder"] for row in rows] == ["BINTARA"]
+    assert rows[0]["amount"] == 23000
+
+
 if __name__ == "__main__":
     test_gofood_multi_outlet_with_title_row_and_merged_merchant_id()
     test_platform_scan_includes_top_level_bulk_file()
+    test_grabfood_csv_is_scanned_and_loaded()
     print("ok")
