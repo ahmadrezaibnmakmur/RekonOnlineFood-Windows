@@ -19,10 +19,13 @@ import argparse
 import os
 import sys
 import json
+import re
 from datetime import datetime, date
+from io import BytesIO
 from pathlib import Path
 from collections import defaultdict
 import warnings
+from zipfile import ZipFile
 
 warnings.filterwarnings("ignore")
 
@@ -475,9 +478,11 @@ def load_erp_transaksi(filepath, start_date, end_date):
     return results
 
 
-def find_platform_reports(project_path, platform, start_date, end_date, extensions=(".xlsx",)):
+def find_platform_reports(
+    project_path, platform, start_date, end_date, extensions=(".xlsx",), scan_all_folders=False
+):
     """
-    Find platform report files that cover the date range.
+    Find platform report files. Transaction dates are filtered by each loader.
     Reports are in: Raw Data Transaksi/<platform>/<YYYY-MM-DD>/<filename>.xlsx.
     Legacy project-root folders still work.
     """
@@ -491,11 +496,12 @@ def find_platform_reports(project_path, platform, start_date, end_date, extensio
         return filename.lower().endswith(extensions) and not filename.startswith("~$")
 
     found_files = []
-    scan_roots = date_scoped_roots(base_dir, start_date, end_date)
+    scan_roots = [base_dir] if scan_all_folders else date_scoped_roots(
+        base_dir, start_date, end_date
+    )
 
-    # A consolidated multi-outlet file is often saved directly in the platform
-    # folder. Include those files even when dated subfolders already exist.
-    if scan_roots != [base_dir]:
+    # A consolidated multi-outlet file may be saved directly in the platform folder.
+    if not scan_all_folders and scan_roots != [base_dir]:
         for f in os.listdir(base_dir):
             if is_report_file(f):
                 found_files.append({
@@ -580,15 +586,52 @@ def normalize_gofood_columns(df):
     return df.rename(columns=rename)
 
 
-def read_gofood_report(filepath):
-    """Read GoFood files whose headers may start after a title row."""
+REVERSED_XLSX_CELL_REFERENCE = re.compile(
+    rb'(<c\b[^>]*\br=")(\d+)([A-Z]+)(")'
+)
+
+
+def repair_reversed_xlsx_references(filepath):
+    """Return a repaired in-memory workbook for malformed cell refs such as 1A."""
+    repaired = BytesIO()
+    repaired_count = 0
+    with ZipFile(filepath) as source, ZipFile(repaired, "w") as target:
+        for entry in source.infolist():
+            content = source.read(entry.filename)
+            if entry.filename.startswith("xl/worksheets/") and entry.filename.endswith(".xml"):
+                content, count = REVERSED_XLSX_CELL_REFERENCE.subn(
+                    lambda match: match.group(1) + match.group(3) + match.group(2) + match.group(4),
+                    content,
+                )
+                repaired_count += count
+            target.writestr(entry, content)
+    if not repaired_count:
+        raise ValueError("Tidak menemukan referensi sel XLSX yang dapat diperbaiki")
+    repaired.seek(0)
+    return repaired
+
+
+def read_gofood_report_source(source):
+    """Read the first matching GoFood header from an Excel source."""
     last_df = None
     for header in range(5):
-        df = normalize_gofood_columns(pd.read_excel(filepath, header=header))
+        if hasattr(source, "seek"):
+            source.seek(0)
+        df = normalize_gofood_columns(pd.read_excel(source, header=header))
         if "Waktu transaksi" in df.columns:
             return df
         last_df = df
     return last_df
+
+
+def read_gofood_report(filepath):
+    """Read GoFood files whose headers may start after a title row."""
+    try:
+        return read_gofood_report_source(filepath)
+    except ValueError as error:
+        if "invalid literal for int()" not in str(error):
+            raise
+        return read_gofood_report_source(repair_reversed_xlsx_references(filepath))
 
 
 def parse_gofood_datetime(value):
@@ -688,7 +731,9 @@ def load_gofood_reports(project_path, start_date, end_date):
     Load all GoFood reports within date range.
     Returns list of dicts with standardized fields.
     """
-    reports = find_platform_reports(project_path, "GoFood", start_date, end_date)
+    reports = find_platform_reports(
+        project_path, "GoFood", start_date, end_date, scan_all_folders=True
+    )
     if not reports:
         return []
 

@@ -1,8 +1,8 @@
-#define MyAppName "Rekon Online Food 1.02"
-#define MyAppVersion "1.02"
+#define MyAppName "Rekon Online Food 1.03"
+#define MyAppVersion "1.03"
 #define MyAppPublisher "MSI"
-#define MyAppExeName "RekonOnlineFood-1.02.exe"
-#define MyAppBuildName "RekonOnlineFood-1.02"
+#define MyAppExeName "RekonOnlineFood-1.03.exe"
+#define MyAppBuildName "RekonOnlineFood-1.03"
 
 [Setup]
 AppId={{B3D1AE9D-2516-48A4-A9E6-3D1967B9B622}
@@ -13,7 +13,7 @@ DefaultDirName={localappdata}\Programs\Rekon Online Food
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=..\dist\installer
-OutputBaseFilename=RekonOnlineFoodSetup-1.02
+OutputBaseFilename=RekonOnlineFoodSetup-1.03
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern

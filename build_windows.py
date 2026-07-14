@@ -8,7 +8,7 @@ Run this file on Windows:
 
 Optional installer build:
     Install Inno Setup, then run this script again. It will create:
-    dist/installer/RekonOnlineFoodSetup-1.02.exe
+    dist/installer/RekonOnlineFoodSetup-1.03.exe
 """
 
 import os
@@ -16,6 +16,8 @@ import platform
 import shutil
 import subprocess
 import sys
+
+from app_version import APP_VERSION
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -25,10 +27,10 @@ REKON_PY = os.path.join(SCRIPT_DIR, "rekon.py")
 TEMPLATES_DIR = os.path.join(APP_DIR, "templates")
 STATIC_DIR = os.path.join(APP_DIR, "static")
 STORE_MAPPING = os.path.join(SCRIPT_DIR, "store_mapping.json")
+APP_VERSION_FILE = os.path.join(SCRIPT_DIR, "app_version.py")
 DIST_DIR = os.path.join(SCRIPT_DIR, "dist")
 BUILD_DIR = os.path.join(SCRIPT_DIR, "build")
 INSTALLER_SCRIPT = os.path.join(SCRIPT_DIR, "installer", "RekonOnlineFood.iss")
-APP_VERSION = "1.02"
 APP_BUILD_NAME = f"RekonOnlineFood-{APP_VERSION}"
 SETUP_NAME = f"RekonOnlineFoodSetup-{APP_VERSION}.exe"
 
@@ -79,6 +81,7 @@ def pyinstaller_args():
         (TEMPLATES_DIR, "webapp/templates"),
         (REKON_PY, "."),
         (STORE_MAPPING, "."),
+        (APP_VERSION_FILE, "."),
     ]
     if os.path.exists(STATIC_DIR):
         data_files.append((STATIC_DIR, "webapp/static"))

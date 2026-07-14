@@ -30,6 +30,8 @@ BUNDLE_DIR = getattr(
 # Add bundled/source app root to path for rekon module.
 sys.path.insert(0, BUNDLE_DIR)
 
+from app_version import APP_VERSION
+
 try:
     from flask import Flask, render_template, request, jsonify, send_file
 except ImportError:
@@ -202,7 +204,9 @@ def calculate_reconciliation(project_path, start_date, end_date):
 @app.route("/")
 def index():
     """Main page."""
-    return render_template("index.html", default_path=DEFAULT_PROJECT_PATH)
+    return render_template(
+        "index.html", default_path=DEFAULT_PROJECT_PATH, app_version=APP_VERSION
+    )
 
 
 @app.route("/api/health")
@@ -357,9 +361,10 @@ def scan_folders():
     def files_from(rows):
         return sorted({r.get("source_file", "") for r in rows if r.get("source_file")})
 
-    def platform_check(name, platform, rows, extensions=(".xlsx",)):
+    def platform_check(name, platform, rows, extensions=(".xlsx",), scan_all_folders=False):
         report_files = [report["filename"] for report in find_platform_reports(
-            project_path, platform, start_date, end_date, extensions=extensions
+            project_path, platform, start_date, end_date, extensions=extensions,
+            scan_all_folders=scan_all_folders,
         )]
         return {
             "name": name,
@@ -391,7 +396,7 @@ def scan_folders():
             "rows": len(transaksi_rows),
         },
         platform_check("GrabFood", "Grabfood", grabfood_rows, extensions=(".xlsx", ".csv")),
-        platform_check("GoFood", "GoFood", gofood_rows),
+        platform_check("GoFood", "GoFood", gofood_rows, scan_all_folders=True),
         platform_check("ShopeeFood", "ShopeeFood", shopeefood_rows),
     ]
 
