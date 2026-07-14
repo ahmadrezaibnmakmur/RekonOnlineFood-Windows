@@ -8,7 +8,7 @@ Run this file on Windows:
 
 Optional installer build:
     Install Inno Setup, then run this script again. It will create:
-    dist/installer/RekonOnlineFoodSetup.exe
+    dist/installer/RekonOnlineFoodSetup-1.01.exe
 """
 
 import os
@@ -28,6 +28,9 @@ STORE_MAPPING = os.path.join(SCRIPT_DIR, "store_mapping.json")
 DIST_DIR = os.path.join(SCRIPT_DIR, "dist")
 BUILD_DIR = os.path.join(SCRIPT_DIR, "build")
 INSTALLER_SCRIPT = os.path.join(SCRIPT_DIR, "installer", "RekonOnlineFood.iss")
+APP_VERSION = "1.01"
+APP_BUILD_NAME = f"RekonOnlineFood-{APP_VERSION}"
+SETUP_NAME = f"RekonOnlineFoodSetup-{APP_VERSION}.exe"
 
 
 def require_windows():
@@ -49,8 +52,8 @@ def check_pyinstaller():
 def clean():
     for path in [
         BUILD_DIR,
-        os.path.join(DIST_DIR, "RekonOnlineFood"),
-        os.path.join(DIST_DIR, "installer", "RekonOnlineFoodSetup.exe"),
+        os.path.join(DIST_DIR, APP_BUILD_NAME),
+        os.path.join(DIST_DIR, "installer", SETUP_NAME),
     ]:
         if os.path.exists(path):
             if os.path.isdir(path):
@@ -65,7 +68,7 @@ def pyinstaller_args():
         "-m",
         "PyInstaller",
         "--name",
-        "RekonOnlineFood",
+        APP_BUILD_NAME,
         "--noconfirm",
         "--clean",
         "--windowed",
@@ -105,9 +108,9 @@ def pyinstaller_args():
 
 
 def build_exe():
-    print("[1/3] Building RekonOnlineFood.exe...")
+    print(f"[1/3] Building {APP_BUILD_NAME}.exe...")
     subprocess.run(pyinstaller_args(), cwd=SCRIPT_DIR, check=True)
-    exe_path = os.path.join(DIST_DIR, "RekonOnlineFood", "RekonOnlineFood.exe")
+    exe_path = os.path.join(DIST_DIR, APP_BUILD_NAME, f"{APP_BUILD_NAME}.exe")
     if not os.path.exists(exe_path):
         print(f"ERROR: Output tidak ditemukan: {exe_path}")
         sys.exit(1)
@@ -133,12 +136,12 @@ def build_installer():
     compiler = find_inno_compiler()
     if not compiler:
         print("ERROR: Inno Setup tidak ditemukan.")
-        print("Install Inno Setup 6 untuk membuat dist\\installer\\RekonOnlineFoodSetup.exe")
+        print(f"Install Inno Setup 6 untuk membuat dist\\installer\\{SETUP_NAME}")
         sys.exit(1)
 
     print("[3/3] Building installer...")
     subprocess.run([compiler, INSTALLER_SCRIPT], cwd=SCRIPT_DIR, check=True)
-    setup_path = os.path.join(DIST_DIR, "installer", "RekonOnlineFoodSetup.exe")
+    setup_path = os.path.join(DIST_DIR, "installer", SETUP_NAME)
     if not os.path.exists(setup_path):
         print(f"ERROR: Installer tidak ditemukan: {setup_path}")
         sys.exit(1)

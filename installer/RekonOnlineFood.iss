@@ -1,7 +1,8 @@
-#define MyAppName "Rekon Online Food"
-#define MyAppVersion "1.0.0"
+#define MyAppName "Rekon Online Food 1.01"
+#define MyAppVersion "1.01"
 #define MyAppPublisher "MSI"
-#define MyAppExeName "RekonOnlineFood.exe"
+#define MyAppExeName "RekonOnlineFood-1.01.exe"
+#define MyAppBuildName "RekonOnlineFood-1.01"
 
 [Setup]
 AppId={{B3D1AE9D-2516-48A4-A9E6-3D1967B9B622}
@@ -12,7 +13,7 @@ DefaultDirName={localappdata}\Programs\Rekon Online Food
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=..\dist\installer
-OutputBaseFilename=RekonOnlineFoodSetup
+OutputBaseFilename=RekonOnlineFoodSetup-1.01
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -26,7 +27,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "Buat shortcut di Desktop"; GroupDescription: "Shortcut:"; Flags: unchecked
 
 [Files]
-Source: "..\dist\RekonOnlineFood\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\{#MyAppBuildName}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

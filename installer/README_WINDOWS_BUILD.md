@@ -9,12 +9,12 @@ User akhir tidak perlu buka terminal, tidak perlu install Python, dan tidak perl
 Share file ini saja:
 
 ```text
-dist\installer\RekonOnlineFoodSetup.exe
+dist\installer\RekonOnlineFoodSetup-1.01.exe
 ```
 
 User cukup:
 
-1. Download `RekonOnlineFoodSetup.exe`.
+1. Download `RekonOnlineFoodSetup-1.01.exe`.
 2. Double-click untuk install.
 3. Klik shortcut `Rekon Online Food`.
 
@@ -42,14 +42,14 @@ py build_windows.py
 
 Output:
 
-- App standalone: `dist\RekonOnlineFood\RekonOnlineFood.exe`
-- Installer: `dist\installer\RekonOnlineFoodSetup.exe`
+- App standalone: `dist\RekonOnlineFood-1.01\RekonOnlineFood-1.01.exe`
+- Installer: `dist\installer\RekonOnlineFoodSetup-1.01.exe`
 
 Jika Inno Setup belum terinstall, build akan berhenti supaya tidak ada installer lama yang tidak sengaja diupload.
 
 ## Test user journey
 
-1. Jalankan `dist\installer\RekonOnlineFoodSetup.exe`.
+1. Jalankan `dist\installer\RekonOnlineFoodSetup-1.01.exe`.
 2. Buka aplikasi dari Start Menu atau Desktop shortcut.
 3. Browser akan terbuka ke `http://localhost:8080`.
 4. Pilih folder project yang berisi `Raw Data Transaksi`.

@@ -16,13 +16,13 @@ Repo ini khusus untuk build Windows `.exe` dan installer lewat GitHub Actions.
 3. Jalankan workflow `Build Windows Installer`, atau biarkan jalan otomatis saat push ke `main`.
 4. Tunggu job selesai.
 5. Download artifact:
-   - `RekonOnlineFoodSetup`
-   - `RekonOnlineFood-portable`
+   - `RekonOnlineFoodSetup-1.01`
+   - `RekonOnlineFood-1.01-portable`
 
 ## Output
 
-- installer: `dist/installer/RekonOnlineFoodSetup.exe`
-- app portable: `dist/RekonOnlineFood/`
+- installer: `dist/installer/RekonOnlineFoodSetup-1.01.exe`
+- app portable: `dist/RekonOnlineFood-1.01/`
 
 ## Fallback manual di Windows
 
