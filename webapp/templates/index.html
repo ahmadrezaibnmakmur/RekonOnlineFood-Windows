@@ -707,7 +707,7 @@
                     const files = item.files.length
                         ? item.files.join(', ')
                         : (item.required ? 'Tidak ditemukan untuk tanggal ini' : 'Tidak ada file untuk tanggal ini');
-                    const label = item.required ? 'wajib' : 'opsional';
+                    const label = item.required_label || (item.required ? 'wajib' : 'opsional');
                     return `
                         <div style="margin-top:8px;">
                             <strong>${icon} ${item.name}</strong>

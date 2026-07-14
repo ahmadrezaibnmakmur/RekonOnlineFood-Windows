@@ -529,6 +529,14 @@ def parse_indonesian_date(date_str):
         return None
 
 
+def row_value(row, column, default=""):
+    """Return a stripped cell value without leaking pandas NaN strings."""
+    value = row.get(column, default)
+    if pd.isna(value):
+        return default
+    return str(value).strip()
+
+
 def load_grabfood_reports(project_path, start_date, end_date):
     """
     Load all Grabfood reports within date range.
@@ -549,9 +557,9 @@ def load_grabfood_reports(project_path, start_date, end_date):
         if df.empty:
             continue
 
-        # Get store name from data
-        store_name = str(df["Store Name"].iloc[0]).strip() if "Store Name" in df.columns else ""
-        folder, is_new = auto_detect_store(store_name, "grabfood")
+        default_store_name = (
+            row_value(df.iloc[0], "Store Name") if "Store Name" in df.columns else ""
+        )
 
         # Parse dates
         if "Transfer Date" in df.columns:
@@ -574,6 +582,9 @@ def load_grabfood_reports(project_path, start_date, end_date):
             # Filter by date range
             if not (start_date <= txn_date_val <= end_date):
                 continue
+
+            store_name = row_value(row, "Store Name") or default_store_name
+            folder, is_new = auto_detect_store(store_name, "grabfood")
 
             results.append({
                 "source": "Grabfood",
@@ -617,14 +628,10 @@ def load_gofood_reports(project_path, start_date, end_date):
         if df.empty:
             continue
 
-        # Extract store from Merchant ID (preferred) or filename (fallback)
-        merchant_id = str(df["Merchant ID"].iloc[0]).strip() if "Merchant ID" in df.columns else ""
-        folder_store, is_new = auto_detect_store(merchant_id, "gofood")
-        
-        # Fallback to filename if merchant ID not found
-        if folder_store == "UNKNOWN" or is_new:
-            filename = rpt["filename"]
-            folder_store = extract_store_from_gofilename(filename)
+        filename_store = extract_store_from_gofilename(rpt["filename"])
+        default_merchant_id = (
+            row_value(df.iloc[0], "Merchant ID") if "Merchant ID" in df.columns else ""
+        )
 
         # Parse transaction time
         if "Waktu transaksi" in df.columns:
@@ -644,6 +651,11 @@ def load_gofood_reports(project_path, start_date, end_date):
             if not (start_date <= txn_date_val <= end_date):
                 continue
 
+            merchant_id = row_value(row, "Merchant ID") or default_merchant_id
+            folder_store, is_new = auto_detect_store(merchant_id, "gofood")
+            if folder_store == "UNKNOWN" or is_new:
+                folder_store = filename_store
+
             results.append({
                 "source": "GoFood",
                 "source_file": rpt["filename"],
@@ -651,7 +663,7 @@ def load_gofood_reports(project_path, start_date, end_date):
                 "store_folder": folder_store,
                 "store_platform": folder_store,
                 "order_id": str(row.get("Nomor pesanan", "")),
-                "merchant_id": str(row.get("Merchant ID", "")),
+                "merchant_id": merchant_id,
                 "penjualan": float(row.get("Penjualan", 0) or 0),
                 "biaya_gofeed": float(row.get("Biaya GoFood", 0) or 0),
                 "total_biaya": float(row.get("Total Biaya", 0) or 0),
@@ -710,8 +722,9 @@ def load_shopeefood_reports(project_path, start_date, end_date):
         if df.empty or "Order Complete Time" not in df.columns:
             continue
 
-        store_name = str(df["Store Name"].iloc[0]).strip() if "Store Name" in df.columns else ""
-        folder, is_new = auto_detect_store(store_name, "shopeefood")
+        default_store_name = (
+            row_value(df.iloc[0], "Store Name") if "Store Name" in df.columns else ""
+        )
         df["txn_dt"] = pd.to_datetime(
             df["Order Complete Time"],
             format="%m/%d/%Y %H:%M:%S",
@@ -744,6 +757,9 @@ def load_shopeefood_reports(project_path, start_date, end_date):
                     f"Overall Amount {overall_amount:,.0f} != Net Income {net_income:,.0f}"
                 )
             report_amount = overall_amount if data_issue and overall_amount is not None else amount
+            store_name = row_value(row, "Store Name") or default_store_name
+            folder, is_new = auto_detect_store(store_name, "shopeefood")
+
             results.append({
                 "source": "ShopeeFood",
                 "source_file": rpt["filename"],

@@ -67,13 +67,27 @@ else:
     DEFAULT_PROJECT_PATH = BUNDLE_DIR
 
 BUNDLED_MAPPING_PATH = os.path.join(BUNDLE_DIR, "store_mapping.json")
+FALLBACK_MAPPING_PATH = os.path.join(
+    BUNDLE_DIR, "RekonOnlineFood-Windows", "store_mapping.json"
+)
+
+
+def read_mapping_payload(path):
+    if not os.path.exists(path) or os.path.getsize(path) == 0:
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except json.JSONDecodeError:
+        return None
 
 
 def default_mapping_payload():
     """Return the bundled mapping payload or an empty default structure."""
-    if os.path.exists(BUNDLED_MAPPING_PATH):
-        with open(BUNDLED_MAPPING_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
+    for mapping_path in (BUNDLED_MAPPING_PATH, FALLBACK_MAPPING_PATH):
+        payload = read_mapping_payload(mapping_path)
+        if payload is not None:
+            return payload
 
     return {
         "_comment": "Mapping nama toko antara ERP dan Platform. Tambah toko baru di sini.",
@@ -104,9 +118,9 @@ def mapping_path_for(project_path):
 def load_mapping_for_project(project_path):
     """Load project mapping, falling back to the bundled default mapping."""
     mapping_path = mapping_path_for(project_path)
-    if os.path.exists(mapping_path):
-        with open(mapping_path, "r", encoding="utf-8") as f:
-            return json.load(f)
+    payload = read_mapping_payload(mapping_path)
+    if payload is not None:
+        return payload
     return default_mapping_payload()
 
 
@@ -346,14 +360,16 @@ def scan_folders():
     checks = [
         {
             "name": "ERP Penerimaan",
-            "required": True,
+            "required": False,
+            "required_label": "salah satu ERP",
             "found": bool(penerimaan_rows),
             "files": files_from(penerimaan_rows),
             "rows": len(penerimaan_rows),
         },
         {
             "name": "ERP Transaksi",
-            "required": True,
+            "required": False,
+            "required_label": "salah satu ERP",
             "found": bool(transaksi_rows),
             "files": files_from(transaksi_rows),
             "rows": len(transaksi_rows),
@@ -384,7 +400,7 @@ def scan_folders():
     result = {
         "project_path": project_path,
         "periode": f"{start_date} s/d {end_date}",
-        "ready": all(c["found"] for c in checks if c["required"]),
+        "ready": bool(penerimaan_rows or transaksi_rows),
         "checks": checks,
         "erp": {
             "penerimaan": [
