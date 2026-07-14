@@ -8,7 +8,7 @@ Run this file on Windows:
 
 Optional installer build:
     Install Inno Setup, then run this script again. It will create:
-    dist/installer/RekonOnlineFoodSetup-1.01.exe
+    dist/installer/RekonOnlineFoodSetup-1.02.exe
 """
 
 import os
@@ -28,7 +28,7 @@ STORE_MAPPING = os.path.join(SCRIPT_DIR, "store_mapping.json")
 DIST_DIR = os.path.join(SCRIPT_DIR, "dist")
 BUILD_DIR = os.path.join(SCRIPT_DIR, "build")
 INSTALLER_SCRIPT = os.path.join(SCRIPT_DIR, "installer", "RekonOnlineFood.iss")
-APP_VERSION = "1.01"
+APP_VERSION = "1.02"
 APP_BUILD_NAME = f"RekonOnlineFood-{APP_VERSION}"
 SETUP_NAME = f"RekonOnlineFoodSetup-{APP_VERSION}.exe"
 
