@@ -357,6 +357,22 @@ def scan_folders():
     def files_from(rows):
         return sorted({r.get("source_file", "") for r in rows if r.get("source_file")})
 
+    def platform_check(name, platform, rows):
+        report_files = [report["filename"] for report in find_platform_reports(
+            project_path, platform, start_date, end_date
+        )]
+        return {
+            "name": name,
+            "required": False,
+            "found": bool(rows),
+            "files": files_from(rows) or sorted(set(report_files)),
+            "rows": len(rows),
+            "note": (
+                "File ditemukan, tetapi tidak ada transaksi yang cocok dengan periode atau formatnya tidak terbaca."
+                if report_files and not rows else ""
+            ),
+        }
+
     checks = [
         {
             "name": "ERP Penerimaan",
@@ -374,27 +390,9 @@ def scan_folders():
             "files": files_from(transaksi_rows),
             "rows": len(transaksi_rows),
         },
-        {
-            "name": "GrabFood",
-            "required": False,
-            "found": bool(grabfood_rows),
-            "files": files_from(grabfood_rows),
-            "rows": len(grabfood_rows),
-        },
-        {
-            "name": "GoFood",
-            "required": False,
-            "found": bool(gofood_rows),
-            "files": files_from(gofood_rows),
-            "rows": len(gofood_rows),
-        },
-        {
-            "name": "ShopeeFood",
-            "required": False,
-            "found": bool(shopeefood_rows),
-            "files": files_from(shopeefood_rows),
-            "rows": len(shopeefood_rows),
-        },
+        platform_check("GrabFood", "Grabfood", grabfood_rows),
+        platform_check("GoFood", "GoFood", gofood_rows),
+        platform_check("ShopeeFood", "ShopeeFood", shopeefood_rows),
     ]
 
     result = {

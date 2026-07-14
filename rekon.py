@@ -486,13 +486,27 @@ def find_platform_reports(project_path, platform, start_date, end_date):
         return []
 
     found_files = []
-    for scan_root in date_scoped_roots(base_dir, start_date, end_date):
+    scan_roots = date_scoped_roots(base_dir, start_date, end_date)
+
+    # A consolidated multi-outlet file is often saved directly in the platform
+    # folder. Include those files even when dated subfolders already exist.
+    if scan_roots != [base_dir]:
+        for f in os.listdir(base_dir):
+            if f.lower().endswith(".xlsx") and not f.startswith("~$"):
+                found_files.append({
+                    "path": os.path.join(base_dir, f),
+                    "filename": f,
+                    "folder_date": None,
+                    "folder_name": os.path.basename(base_dir),
+                })
+
+    for scan_root in scan_roots:
         for root, _, files in os.walk(scan_root):
             folder_name = os.path.basename(root)
             folder_date = parse_report_folder_date(folder_name)
 
             for f in files:
-                if f.endswith(".xlsx") and not f.startswith("~$"):
+                if f.lower().endswith(".xlsx") and not f.startswith("~$"):
                     found_files.append({
                         "path": os.path.join(root, f),
                         "filename": f,
@@ -535,6 +549,50 @@ def row_value(row, column, default=""):
     if pd.isna(value):
         return default
     return str(value).strip()
+
+
+def normalize_gofood_columns(df):
+    """Normalize known GoFood headers exported with different casing or spacing."""
+    aliases = {
+        "merchant id": "Merchant ID",
+        "merchant name": "Nama Merchant",
+        "nama merchant": "Nama Merchant",
+        "outlet name": "Nama Outlet",
+        "nama outlet": "Nama Outlet",
+        "nama toko": "Nama Outlet",
+        "waktu transaksi": "Waktu transaksi",
+        "nomor pesanan": "Nomor pesanan",
+        "penjualan": "Penjualan",
+        "biaya gofood": "Biaya GoFood",
+        "total biaya": "Total Biaya",
+        "pendapatan bersih": "Pendapatan Bersih",
+    }
+    rename = {}
+    for column in df.columns:
+        normalized = " ".join(str(column).replace("\ufeff", "").split()).casefold()
+        if normalized in aliases:
+            rename[column] = aliases[normalized]
+    return df.rename(columns=rename)
+
+
+def read_gofood_report(filepath):
+    """Read GoFood files whose headers may start after a title row."""
+    last_df = None
+    for header in range(5):
+        df = normalize_gofood_columns(pd.read_excel(filepath, header=header))
+        if "Waktu transaksi" in df.columns:
+            return df
+        last_df = df
+    return last_df
+
+
+def parse_gofood_datetime(value):
+    """Parse ISO and Indonesian-style GoFood transaction timestamps safely."""
+    if pd.isna(value):
+        return pd.NaT
+    text = str(value).strip()
+    iso_format = len(text) >= 5 and text[:4].isdigit() and text[4] in "-/"
+    return pd.to_datetime(value, errors="coerce", dayfirst=not iso_format)
 
 
 def load_grabfood_reports(project_path, start_date, end_date):
@@ -620,7 +678,7 @@ def load_gofood_reports(project_path, start_date, end_date):
     results = []
     for rpt in reports:
         try:
-            df = pd.read_excel(rpt["path"], header=0)
+            df = read_gofood_report(rpt["path"])
         except Exception as e:
             print(f"  [WARN] Gagal baca {rpt['filename']}: {e}")
             continue
@@ -629,15 +687,16 @@ def load_gofood_reports(project_path, start_date, end_date):
             continue
 
         filename_store = extract_store_from_gofilename(rpt["filename"])
-        default_merchant_id = (
-            row_value(df.iloc[0], "Merchant ID") if "Merchant ID" in df.columns else ""
-        )
-
-        # Parse transaction time
-        if "Waktu transaksi" in df.columns:
-            df["txn_dt"] = pd.to_datetime(df["Waktu transaksi"], errors="coerce")
-        else:
+        if "Waktu transaksi" not in df.columns:
+            print(f"  [WARN] {rpt['filename']}: kolom 'Waktu transaksi' tidak ditemukan")
             continue
+
+        # Consolidated exports can leave Merchant ID blank after the first row
+        # of each outlet. Carry it only within its own preceding outlet block.
+        if "Merchant ID" in df.columns:
+            df["Merchant ID"] = df["Merchant ID"].replace(r"^\s*$", pd.NA, regex=True).ffill()
+
+        df["txn_dt"] = df["Waktu transaksi"].apply(parse_gofood_datetime)
 
         for _, row in df.iterrows():
             txn_dt = row.get("txn_dt")
@@ -651,8 +710,15 @@ def load_gofood_reports(project_path, start_date, end_date):
             if not (start_date <= txn_date_val <= end_date):
                 continue
 
-            merchant_id = row_value(row, "Merchant ID") or default_merchant_id
+            merchant_id = row_value(row, "Merchant ID")
             folder_store, is_new = auto_detect_store(merchant_id, "gofood")
+            outlet_name = next(
+                (row_value(row, column) for column in ("Nama Outlet", "Nama Merchant")
+                 if column in df.columns and row_value(row, column)),
+                "",
+            )
+            if (folder_store == "UNKNOWN" or is_new) and outlet_name:
+                folder_store, is_new = auto_detect_store(outlet_name, "gofood")
             if folder_store == "UNKNOWN" or is_new:
                 folder_store = filename_store
 
@@ -661,7 +727,7 @@ def load_gofood_reports(project_path, start_date, end_date):
                 "source_file": rpt["filename"],
                 "platform": "GoFood",
                 "store_folder": folder_store,
-                "store_platform": folder_store,
+                "store_platform": outlet_name or folder_store,
                 "order_id": str(row.get("Nomor pesanan", "")),
                 "merchant_id": merchant_id,
                 "penjualan": float(row.get("Penjualan", 0) or 0),

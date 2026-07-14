@@ -708,12 +708,14 @@
                         ? item.files.join(', ')
                         : (item.required ? 'Tidak ditemukan untuk tanggal ini' : 'Tidak ada file untuk tanggal ini');
                     const label = item.required_label || (item.required ? 'wajib' : 'opsional');
+                    const note = item.note ? `<br><span style="font-size:0.82rem;">${item.note}</span>` : '';
                     return `
                         <div style="margin-top:8px;">
                             <strong>${icon} ${item.name}</strong>
                             <span style="font-size:0.78rem;">(${label})</span>
                             <span class="count">${item.rows}</span> ${unit}<br>
                             <span style="font-size:0.88rem;">${files}</span>
+                            ${note}
                         </div>
                     `;
                 }).join('');
