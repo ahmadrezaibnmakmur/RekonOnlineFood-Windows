@@ -199,6 +199,28 @@
         .status-erp { background: #fef3c7; color: #92400e; }
         .status-plat { background: #fee2e2; color: #991b1b; }
 
+        .diagnostics-panel {
+            background: #fffbeb;
+            border: 1px solid #fcd34d;
+            color: #78350f;
+        }
+
+        .diagnostics-summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+
+        .diagnostics-chip {
+            background: #fef3c7;
+            border: 1px solid #fbbf24;
+            border-radius: 999px;
+            padding: 5px 10px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
         /* Tabs */
         .tabs {
             display: flex;
@@ -386,6 +408,8 @@
 
         <!-- Results -->
         <div id="results" class="hidden">
+            <div id="diagnosticsPanel" class="card diagnostics-panel hidden"></div>
+
             <!-- Stats -->
             <div class="stats-grid" id="statsGrid"></div>
 
@@ -612,6 +636,86 @@
             document.getElementById('results').classList.add('hidden');
         }
 
+        async function readJsonResponse(res) {
+            const text = await res.text();
+            try {
+                return JSON.parse(text);
+            } catch (_) {
+                throw new Error(
+                    `Respons server tidak valid (HTTP ${res.status}). ` +
+                    'Silakan periksa Catatan Data atau log aplikasi.'
+                );
+            }
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#039;');
+        }
+
+        function diagnosticsSummaryText(diagnostics) {
+            const summary = diagnostics?.summary || {};
+            const parts = [];
+            if (summary.ignored_rows) {
+                parts.push(`${summary.ignored_rows} transaksi dilewati`);
+            }
+            if (summary.amount_defaulted) {
+                parts.push(`${summary.amount_defaulted} amount dinolkan`);
+            }
+            return parts.join(', ');
+        }
+
+        function renderDiagnostics(diagnostics) {
+            const panel = document.getElementById('diagnosticsPanel');
+            const summary = diagnostics?.summary || {};
+            const events = diagnostics?.events || [];
+            if (!summary.total) {
+                panel.innerHTML = '';
+                panel.classList.add('hidden');
+                return;
+            }
+
+            const rows = events.map(event => `
+                <tr>
+                    <td>${event.kind === 'ignored' ? 'Dilewati' : 'Amount dinolkan'}</td>
+                    <td>${escapeHtml(event.platform)}</td>
+                    <td>${escapeHtml(event.date)}</td>
+                    <td>${escapeHtml(event.store || '-')}</td>
+                    <td>${escapeHtml(event.order_id || '-')}</td>
+                    <td>${escapeHtml(event.source_file)}</td>
+                    <td>${escapeHtml(event.action)}</td>
+                    <td>${escapeHtml(event.message)}</td>
+                </tr>
+            `).join('');
+
+            panel.innerHTML = `
+                <div class="card-title">
+                    <span class="icon">⚠️</span> Catatan Data
+                </div>
+                <div class="diagnostics-summary">
+                    ${summary.ignored_rows ? `<span class="diagnostics-chip">${summary.ignored_rows} transaksi dilewati</span>` : ''}
+                    ${summary.amount_defaulted ? `<span class="diagnostics-chip">${summary.amount_defaulted} amount dinolkan</span>` : ''}
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Jenis</th><th>Platform</th><th>Tanggal</th>
+                                <th>Outlet</th><th>Order</th><th>File</th>
+                                <th>Tindakan</th><th>Keterangan</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            `;
+            panel.classList.remove('hidden');
+        }
+
         function formatRupiah(num) {
             if (num === 0 || num === null || num === undefined) return '-';
             return 'Rp ' + num.toLocaleString('id-ID');
@@ -689,7 +793,7 @@
                         end_date: endDate
                     })
                 });
-                const data = await res.json();
+                const data = await readJsonResponse(res);
                 
                 if (data.error) {
                     info.innerHTML = '❌ ' + data.error;
@@ -726,6 +830,10 @@
 
                 let html = `<strong>${data.ready ? '✅ File wajib siap, rekon bisa dijalankan' : '⚠️ File wajib belum lengkap'}</strong><br>`;
                 html += `Periode: ${data.periode}`;
+                const diagnosticSummary = diagnosticsSummaryText(data.diagnostics);
+                if (diagnosticSummary) {
+                    html += `<br><strong>⚠️ Catatan Data:</strong> ${escapeHtml(diagnosticSummary)}`;
+                }
                 html += rows;
 
                 info.innerHTML = html;
@@ -759,7 +867,7 @@
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({path: currentBrowserPath})
                 });
-                const data = await res.json();
+                const data = await readJsonResponse(res);
 
                 if (data.path) {
                     setProjectPath(data.path);
@@ -790,7 +898,7 @@
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({path: path})
                 });
-                const data = await res.json();
+                const data = await readJsonResponse(res);
                 
                 if (data.error) {
                     alert(data.error);
@@ -871,7 +979,7 @@
                         end_date: endDate
                     })
                 });
-                const data = await res.json();
+                const data = await readJsonResponse(res);
 
                 if (data.error) {
                     alert('Error: ' + data.error);
@@ -890,6 +998,8 @@
         }
 
         function renderResults(data) {
+            renderDiagnostics(data.diagnostics);
+
             // Stats
             const s = data.stats;
             document.getElementById('statsGrid').innerHTML = `
@@ -1063,10 +1173,14 @@
                         end_date: endDate
                     })
                 });
-                const data = await res.json();
+                const data = await readJsonResponse(res);
 
                 if (data.success) {
-                    alert('✅ File Excel berhasil disimpan ke:\n' + data.path);
+                    const note = diagnosticsSummaryText(data.diagnostics);
+                    alert(
+                        '✅ File Excel berhasil disimpan ke:\n' + data.path +
+                        (note ? `\n\nCatatan Data: ${note}` : '')
+                    );
                 } else {
                     alert('Error: ' + (data.error || 'Unknown error'));
                 }

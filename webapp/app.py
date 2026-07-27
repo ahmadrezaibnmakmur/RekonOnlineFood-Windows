@@ -53,7 +53,7 @@ from rekon import (
     find_platform_reports, load_grabfood_reports, load_gofood_reports,
     load_shopeefood_reports,
     reconcile, generate_summary_per_store_day, generate_summary_per_platform, generate_detail,
-    export_to_excel,
+    export_to_excel, build_diagnostics, ensure_finite_payload,
 )
 
 TEMPLATE_DIR = os.path.join(BUNDLE_DIR, "webapp", "templates")
@@ -155,17 +155,28 @@ def activate_project_mapping(project_path):
 def calculate_reconciliation(project_path, start_date, end_date):
     """Load, reconcile, and generate report rows for a project/date range."""
     activate_project_mapping(project_path)
+    diagnostic_events = []
 
     penerimaan_files, transaksi_files = find_erp_files(project_path, start_date, end_date)
     erp_data = []
     for f in penerimaan_files:
-        erp_data.extend(load_erp_penerimaan(f, start_date, end_date))
+        erp_data.extend(
+            load_erp_penerimaan(f, start_date, end_date, diagnostic_events)
+        )
     for f in transaksi_files:
-        erp_data.extend(load_erp_transaksi(f, start_date, end_date))
+        erp_data.extend(
+            load_erp_transaksi(f, start_date, end_date, diagnostic_events)
+        )
 
-    grabfood_data = load_grabfood_reports(project_path, start_date, end_date)
-    gofood_data = load_gofood_reports(project_path, start_date, end_date)
-    shopeefood_data = load_shopeefood_reports(project_path, start_date, end_date)
+    grabfood_data = load_grabfood_reports(
+        project_path, start_date, end_date, diagnostic_events
+    )
+    gofood_data = load_gofood_reports(
+        project_path, start_date, end_date, diagnostic_events
+    )
+    shopeefood_data = load_shopeefood_reports(
+        project_path, start_date, end_date, diagnostic_events
+    )
 
     erp_gofood = [e for e in erp_data if e["platform"] == "GoFood"]
     erp_grabfood = [e for e in erp_data if e["platform"] == "GrabFood"]
@@ -198,6 +209,7 @@ def calculate_reconciliation(project_path, start_date, end_date):
         "summary_rows": summary_rows,
         "platform_summary_rows": platform_summary_rows,
         "detail_rows": detail_rows,
+        "diagnostics": build_diagnostics(diagnostic_events),
     }
 
 
@@ -343,18 +355,29 @@ def scan_folders():
 
     try:
         activate_project_mapping(project_path)
+        diagnostic_events = []
 
         penerimaan_files, transaksi_files = find_erp_files(project_path, start_date, end_date)
         penerimaan_rows = []
         transaksi_rows = []
         for f in penerimaan_files:
-            penerimaan_rows.extend(load_erp_penerimaan(f, start_date, end_date))
+            penerimaan_rows.extend(
+                load_erp_penerimaan(f, start_date, end_date, diagnostic_events)
+            )
         for f in transaksi_files:
-            transaksi_rows.extend(load_erp_transaksi(f, start_date, end_date))
+            transaksi_rows.extend(
+                load_erp_transaksi(f, start_date, end_date, diagnostic_events)
+            )
 
-        grabfood_rows = load_grabfood_reports(project_path, start_date, end_date)
-        gofood_rows = load_gofood_reports(project_path, start_date, end_date)
-        shopeefood_rows = load_shopeefood_reports(project_path, start_date, end_date)
+        grabfood_rows = load_grabfood_reports(
+            project_path, start_date, end_date, diagnostic_events
+        )
+        gofood_rows = load_gofood_reports(
+            project_path, start_date, end_date, diagnostic_events
+        )
+        shopeefood_rows = load_shopeefood_reports(
+            project_path, start_date, end_date, diagnostic_events
+        )
     except Exception as e:
         return jsonify({"error": f"Gagal scan folder: {e}"}), 500
 
@@ -424,6 +447,7 @@ def scan_folders():
             {"folder": k, "display": v.get("display", k)}
             for k, v in sorted(STORE_MAP.items())
         ],
+        "diagnostics": build_diagnostics(diagnostic_events),
     }
 
     return jsonify(result)
@@ -452,7 +476,11 @@ def run_reconciliation():
     if not os.path.isdir(project_path):
         return jsonify({"error": f"Folder tidak ditemukan: {project_path}"}), 400
 
-    results = calculate_reconciliation(project_path, start_date, end_date)
+    try:
+        results = calculate_reconciliation(project_path, start_date, end_date)
+    except Exception as e:
+        return jsonify({"error": f"Gagal proses rekonsiliasi: {e}"}), 500
+
     summary_rows = results["summary_rows"]
     platform_summary_rows = results["platform_summary_rows"]
     detail_rows = results["detail_rows"]
@@ -484,7 +512,13 @@ def run_reconciliation():
         "summary": summary_rows,
         "platform_summary": platform_summary_rows,
         "detail": detail_rows,
+        "diagnostics": results["diagnostics"],
     }
+
+    try:
+        ensure_finite_payload(result, "respons API")
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 422
 
     return jsonify(result)
 
@@ -517,23 +551,29 @@ def export_excel():
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, f"Rekon_OnlineFood_{date_str}.xlsx")
 
-    results = calculate_reconciliation(project_path, start_date, end_date)
-
-    export_to_excel(
-        results["summary_rows"],
-        results["detail_rows"],
-        results["matched"],
-        results["unmatched_erp"],
-        results["unmatched_platform"],
-        start_date,
-        end_date,
-        output_path,
-    )
+    try:
+        results = calculate_reconciliation(project_path, start_date, end_date)
+        export_to_excel(
+            results["summary_rows"],
+            results["detail_rows"],
+            results["matched"],
+            results["unmatched_erp"],
+            results["unmatched_platform"],
+            start_date,
+            end_date,
+            output_path,
+            diagnostics=results["diagnostics"],
+        )
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 422
+    except Exception as e:
+        return jsonify({"error": f"Gagal export rekonsiliasi: {e}"}), 500
 
     return jsonify({
         "success": True,
         "path": output_path,
         "filename": os.path.basename(output_path),
+        "diagnostics": results["diagnostics"],
     })
 
 

@@ -19,6 +19,8 @@ import argparse
 import os
 import sys
 import json
+import math
+import numbers
 import re
 from datetime import datetime, date
 from io import BytesIO
@@ -46,10 +48,16 @@ RAW_DATA_DIR_NAME = "Raw Data Transaksi"
 
 def load_store_mapping():
     """Load store mapping from JSON config file."""
-    if os.path.exists(STORE_MAPPING_FILE):
-        with open(STORE_MAPPING_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return data.get("stores", {})
+    fallback_mapping = os.path.join(CONFIG_DIR, "RekonOnlineFood-Windows", "store_mapping.json")
+    for mapping_file in (STORE_MAPPING_FILE, fallback_mapping):
+        if not os.path.exists(mapping_file) or os.path.getsize(mapping_file) == 0:
+            continue
+        try:
+            with open(mapping_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return data.get("stores", {})
+        except json.JSONDecodeError:
+            continue
     return {}
 
 
@@ -366,6 +374,161 @@ ID_MONTHS = {
 # DATA LOADERS
 # ============================================================
 
+def finite_number(value, default=0.0):
+    """Return a finite float and whether the source value was valid."""
+    if value is None:
+        return float(default), False
+    try:
+        if pd.isna(value):
+            return float(default), False
+    except (TypeError, ValueError):
+        return float(default), False
+    if isinstance(value, str) and not value.strip():
+        return float(default), False
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return float(default), False
+    if not math.isfinite(number):
+        return float(default), False
+    return number, True
+
+
+def diagnostic_value(value):
+    """Return a reader-facing representation of an invalid source value."""
+    if value is None:
+        return "(kosong)"
+    try:
+        if pd.isna(value):
+            return "(kosong)"
+    except (TypeError, ValueError):
+        pass
+    text = str(value).strip()
+    return text or "(kosong)"
+
+
+def add_diagnostic(
+    diagnostics,
+    kind,
+    code,
+    platform,
+    transaction_date,
+    source_file,
+    store,
+    order_id,
+    field,
+    original_value,
+    action,
+    message,
+):
+    """Append a structured data-quality event when diagnostics are requested."""
+    if diagnostics is None:
+        return
+    diagnostics.append({
+        "kind": kind,
+        "code": code,
+        "platform": platform,
+        "date": str(transaction_date) if transaction_date else "",
+        "source_file": source_file,
+        "store": store or "",
+        "order_id": order_id or "",
+        "field": field or "",
+        "original_value": diagnostic_value(original_value),
+        "action": action,
+        "message": message,
+    })
+
+
+def invalid_amount_issue(
+    diagnostics,
+    platform,
+    transaction_date,
+    source_file,
+    store,
+    order_id,
+    field,
+    original_value,
+):
+    """Record an invalid primary amount and return its row-level issue text."""
+    message = (
+        f"{field} kosong/tidak valid; digunakan Rp0 dan transaksi tidak dicocokkan"
+    )
+    add_diagnostic(
+        diagnostics=diagnostics,
+        kind="amount_defaulted",
+        code="invalid_primary_amount",
+        platform=platform,
+        transaction_date=transaction_date,
+        source_file=source_file,
+        store=store,
+        order_id=order_id,
+        field=field,
+        original_value=original_value,
+        action="Diubah menjadi Rp0; tidak dicocokkan",
+        message=message,
+    )
+    return message
+
+
+def combine_data_issue(*issues):
+    """Combine distinct row-level data issues into one readable message."""
+    unique = []
+    for issue in issues:
+        if issue and issue not in unique:
+            unique.append(issue)
+    return " | ".join(unique) if unique else None
+
+
+def build_diagnostics(events=None):
+    """Build the additive diagnostics API/export payload."""
+    events = list(events or [])
+    summary = {
+        "total": len(events),
+        "ignored_rows": sum(1 for event in events if event["kind"] == "ignored"),
+        "amount_defaulted": sum(
+            1 for event in events if event["kind"] == "amount_defaulted"
+        ),
+        "by_platform": {},
+    }
+    for event in events:
+        platform_summary = summary["by_platform"].setdefault(
+            event["platform"],
+            {"ignored_rows": 0, "amount_defaulted": 0},
+        )
+        if event["kind"] == "ignored":
+            platform_summary["ignored_rows"] += 1
+        elif event["kind"] == "amount_defaulted":
+            platform_summary["amount_defaulted"] += 1
+    return {"summary": summary, "events": events}
+
+
+def find_non_finite(value, path="$"):
+    """Return the first path containing NaN or infinity, if any."""
+    if isinstance(value, numbers.Real) and not isinstance(value, bool):
+        if not math.isfinite(float(value)):
+            return path
+        return None
+    if isinstance(value, dict):
+        for key, child in value.items():
+            found = find_non_finite(child, f"{path}.{key}")
+            if found:
+                return found
+    elif isinstance(value, (list, tuple)):
+        for index, child in enumerate(value):
+            found = find_non_finite(child, f"{path}[{index}]")
+            if found:
+                return found
+    return None
+
+
+def ensure_finite_payload(value, label="hasil rekonsiliasi"):
+    """Fail before JSON/export when an unexpected non-finite number remains."""
+    path = find_non_finite(value)
+    if path:
+        raise ValueError(
+            f"{label} masih mengandung nilai numerik tidak valid pada {path}"
+        )
+
 def find_erp_files(project_path, start_date=None, end_date=None):
     """Find all ERP files in Download ERP folder."""
     erp_dir = os.path.join(resolve_data_root(project_path), "Download ERP")
@@ -390,7 +553,7 @@ def find_erp_files(project_path, start_date=None, end_date=None):
     return penerimaan_files, transaksi_files
 
 
-def load_erp_penerimaan(filepath, start_date, end_date):
+def load_erp_penerimaan(filepath, start_date, end_date, diagnostics=None):
     """
     Load ERP File 1 (Penerimaan Penjualan Per Tipe Pembayaran).
     Returns list of dicts with standardized fields.
@@ -430,11 +593,27 @@ def load_erp_penerimaan(filepath, start_date, end_date):
     for _, row in df.iterrows():
         cabang = str(row.get("Nama Cabang Faktur Penjualan", "")).strip()
         folder, is_new = auto_detect_store(cabang, "erp_penerimaan")
+        no_faktur = str(row.get("Nomor # Faktur Penjualan", ""))
 
         # Normalize platform name
         platform = row["Tipe Pembayaran"]
         if platform == "Shopee Food":
             platform = "ShopeeFood"
+
+        raw_amount = row.get("Total Penerimaan", 0)
+        amount, amount_valid = finite_number(raw_amount)
+        data_issue = None
+        if not amount_valid:
+            data_issue = invalid_amount_issue(
+                diagnostics,
+                platform,
+                row["date"],
+                os.path.basename(filepath),
+                cabang,
+                no_faktur,
+                "Total Penerimaan",
+                raw_amount,
+            )
 
         results.append({
             "source": "ERP",
@@ -442,8 +621,9 @@ def load_erp_penerimaan(filepath, start_date, end_date):
             "platform": platform,
             "store_folder": folder,
             "store_erp": cabang,
-            "no_faktur": str(row.get("Nomor # Faktur Penjualan", "")),
-            "amount": float(row.get("Total Penerimaan", 0) or 0),
+            "no_faktur": no_faktur,
+            "amount": amount,
+            "data_issue": data_issue,
             "datetime": row["Waktu Transaksi (POS)"],
             "date": row["date"],
         })
@@ -451,7 +631,7 @@ def load_erp_penerimaan(filepath, start_date, end_date):
     return results
 
 
-def load_erp_transaksi(filepath, start_date, end_date):
+def load_erp_transaksi(filepath, start_date, end_date, diagnostics=None):
     """
     Load ERP File 2 (Laporan Transaksi Penjualan).
     Returns list of dicts with standardized fields.
@@ -481,15 +661,32 @@ def load_erp_transaksi(filepath, start_date, end_date):
     for _, row in df.iterrows():
         cabang = str(row.get("Cabang", "")).strip()
         folder, is_new = auto_detect_store(cabang, "erp_transaksi")
+        platform = str(row["Sales Channel"])
+        no_faktur = str(row.get("No Penggunaan", ""))
+        raw_amount = row.get("Total Harga Jual (Net)", 0)
+        amount, amount_valid = finite_number(raw_amount)
+        data_issue = None
+        if not amount_valid:
+            data_issue = invalid_amount_issue(
+                diagnostics,
+                platform,
+                row["date"],
+                os.path.basename(filepath),
+                cabang,
+                no_faktur,
+                "Total Harga Jual (Net)",
+                raw_amount,
+            )
 
         results.append({
             "source": "ERP",
             "source_file": os.path.basename(filepath),
-            "platform": str(row["Sales Channel"]),
+            "platform": platform,
             "store_folder": folder,
             "store_erp": cabang,
-            "no_faktur": str(row.get("No Penggunaan", "")),
-            "amount": float(row.get("Total Harga Jual (Net)", 0) or 0),
+            "no_faktur": no_faktur,
+            "amount": amount,
+            "data_issue": data_issue,
             "datetime": row["tanggal_dt"],
             "date": row["date"],
         })
@@ -672,7 +869,7 @@ def read_grabfood_report(filepath):
     return pd.read_excel(filepath, header=0)
 
 
-def load_grabfood_reports(project_path, start_date, end_date):
+def load_grabfood_reports(project_path, start_date, end_date, diagnostics=None):
     """
     Load all Grabfood reports within date range.
     Returns list of dicts with standardized fields.
@@ -721,11 +918,52 @@ def load_grabfood_reports(project_path, start_date, end_date):
                 continue
 
             store_name = row_value(row, "Store Name") or default_store_name
+            status = row_value(row, "Status")
+            order_type = row_value(row, "Order Type")
+            transaction_id = row_value(row, "Transaction ID")
+            short_order_id = row_value(row, "Short Order ID")
+            order_id = transaction_id or short_order_id
+
+            if (
+                status.casefold() in {"cancelled", "canceled"}
+                or order_type.casefold() == "not paid"
+            ):
+                add_diagnostic(
+                    diagnostics=diagnostics,
+                    kind="ignored",
+                    code="grabfood_cancelled_or_unpaid",
+                    platform="GrabFood",
+                    transaction_date=txn_date_val,
+                    source_file=rpt["filename"],
+                    store=store_name,
+                    order_id=order_id,
+                    field="Status / Order Type",
+                    original_value=f"{status or '-'} / {order_type or '-'}",
+                    action="Dilewati dari rekonsiliasi",
+                    message="Transaksi dibatalkan atau tidak dibayar",
+                )
+                continue
+
             folder = map_platform_store(store_name, "grabfood")
-            data_issue = (
+            mapping_issue = (
                 f"Outlet GrabFood belum dimapping exact: {store_name or '-'}"
                 if folder == "UNMAPPED" else None
             )
+            raw_amount = row.get("Net Sales", 0)
+            amount, amount_valid = finite_number(raw_amount)
+            amount_issue = None
+            if not amount_valid:
+                amount_issue = invalid_amount_issue(
+                    diagnostics,
+                    "GrabFood",
+                    txn_date_val,
+                    rpt["filename"],
+                    store_name,
+                    order_id,
+                    "Net Sales",
+                    raw_amount,
+                )
+            data_issue = combine_data_issue(mapping_issue, amount_issue)
 
             results.append({
                 "source": "Grabfood",
@@ -734,15 +972,15 @@ def load_grabfood_reports(project_path, start_date, end_date):
                 "store_folder": folder,
                 "store_platform": store_name,
                 "data_issue": data_issue,
-                "transaction_id": str(row.get("Transaction ID", "")),
-                "short_order_id": str(row.get("Short Order ID", "")),
-                "amount": float(row.get("Net Sales", 0) or 0),
-                "gross_amount": float(row.get("Amount", 0) or 0),
-                "net_sales": float(row.get("Net Sales", 0) or 0),
-                "grab_fee": float(row.get("Grab Fee", 0) or 0),
-                "total_received": float(row.get("Total", 0) or 0),
-                "status": str(row.get("Status", "")),
-                "payment_method": str(row.get("Payment Method", "")),
+                "transaction_id": transaction_id,
+                "short_order_id": short_order_id,
+                "amount": amount,
+                "gross_amount": finite_number(row.get("Amount", 0))[0],
+                "net_sales": amount,
+                "grab_fee": finite_number(row.get("Grab Fee", 0))[0],
+                "total_received": finite_number(row.get("Total", 0))[0],
+                "status": status,
+                "payment_method": row_value(row, "Payment Method"),
                 "datetime": txn_date,
                 "date": txn_date_val,
             })
@@ -750,7 +988,7 @@ def load_grabfood_reports(project_path, start_date, end_date):
     return results
 
 
-def load_gofood_reports(project_path, start_date, end_date):
+def load_gofood_reports(project_path, start_date, end_date, diagnostics=None):
     """
     Load all GoFood reports within date range.
     Returns list of dicts with standardized fields.
@@ -797,15 +1035,31 @@ def load_gofood_reports(project_path, start_date, end_date):
 
             merchant_id = row_value(row, "Merchant ID")
             folder_store = map_platform_store(merchant_id, "gofood")
+            order_id = row_value(row, "Nomor pesanan")
             outlet_name = next(
                 (row_value(row, column) for column in ("Nama Outlet", "Nama Merchant")
                  if column in df.columns and row_value(row, column)),
                 "",
             )
-            data_issue = (
+            mapping_issue = (
                 f"Merchant ID GoFood belum dimapping exact: {merchant_id or outlet_name or '-'}"
                 if folder_store == "UNMAPPED" else None
             )
+            raw_amount = row.get("Penjualan", 0)
+            amount, amount_valid = finite_number(raw_amount)
+            amount_issue = None
+            if not amount_valid:
+                amount_issue = invalid_amount_issue(
+                    diagnostics,
+                    "GoFood",
+                    txn_date_val,
+                    rpt["filename"],
+                    outlet_name or merchant_id,
+                    order_id,
+                    "Penjualan",
+                    raw_amount,
+                )
+            data_issue = combine_data_issue(mapping_issue, amount_issue)
 
             results.append({
                 "source": "GoFood",
@@ -814,13 +1068,15 @@ def load_gofood_reports(project_path, start_date, end_date):
                 "store_folder": folder_store,
                 "store_platform": outlet_name or folder_store,
                 "data_issue": data_issue,
-                "order_id": str(row.get("Nomor pesanan", "")),
+                "order_id": order_id,
                 "merchant_id": merchant_id,
-                "penjualan": float(row.get("Penjualan", 0) or 0),
-                "biaya_gofeed": float(row.get("Biaya GoFood", 0) or 0),
-                "total_biaya": float(row.get("Total Biaya", 0) or 0),
-                "pendapatan_bersih": float(row.get("Pendapatan Bersih", 0) or 0),
-                "amount": float(row.get("Penjualan", 0) or 0),  # unified field
+                "penjualan": amount,
+                "biaya_gofeed": finite_number(row.get("Biaya GoFood", 0))[0],
+                "total_biaya": finite_number(row.get("Total Biaya", 0))[0],
+                "pendapatan_bersih": finite_number(
+                    row.get("Pendapatan Bersih", 0)
+                )[0],
+                "amount": amount,
                 "datetime": txn_dt,
                 "date": txn_date_val,
             })
@@ -828,21 +1084,26 @@ def load_gofood_reports(project_path, start_date, end_date):
     return results
 
 
-def parse_shopee_amount(value):
-    """Parse ShopeeFood amount strings like '10.000' into 10000."""
+def parse_shopee_amount_result(value):
+    """Parse ShopeeFood amount text and report whether it was valid."""
     if pd.isna(value):
-        return 0.0
+        return 0.0, False
     if isinstance(value, (int, float)):
-        return float(value)
+        return finite_number(value)
 
     text = str(value).strip()
     if not text:
-        return 0.0
+        return 0.0, False
     text = text.replace(".", "").replace(",", ".")
-    return float(text)
+    return finite_number(text)
 
 
-def load_shopeefood_reports(project_path, start_date, end_date):
+def parse_shopee_amount(value):
+    """Parse ShopeeFood amount strings like '10.000' into a finite float."""
+    return parse_shopee_amount_result(value)[0]
+
+
+def load_shopeefood_reports(project_path, start_date, end_date, diagnostics=None):
     """
     Load all ShopeeFood transaction reports within date range.
     Returns list of dicts with standardized fields.
@@ -898,8 +1159,9 @@ def load_shopeefood_reports(project_path, start_date, end_date):
             if txn_date_val is None or not (start_date <= txn_date_val <= end_date):
                 continue
 
-            amount = parse_shopee_amount(row.get("Order Amount", 0))
-            order_id = str(row.get("Order ID", ""))
+            raw_amount = row.get("Order Amount", 0)
+            amount, amount_valid = parse_shopee_amount_result(raw_amount)
+            order_id = row_value(row, "Order ID")
             net_income = parse_shopee_amount(row.get("Net Income", 0))
             overall_amount = overall_amounts.get(order_id)
             data_issue = None
@@ -911,8 +1173,24 @@ def load_shopeefood_reports(project_path, start_date, end_date):
             report_amount = overall_amount if data_issue and overall_amount is not None else amount
             store_name = row_value(row, "Store Name") or default_store_name
             folder = map_platform_store(store_name, "shopeefood")
+            amount_issue = None
+            if not amount_valid:
+                amount_issue = invalid_amount_issue(
+                    diagnostics,
+                    "ShopeeFood",
+                    txn_date_val,
+                    rpt["filename"],
+                    store_name,
+                    order_id,
+                    "Order Amount",
+                    raw_amount,
+                )
             if folder == "UNMAPPED":
-                data_issue = f"Outlet ShopeeFood belum dimapping exact: {store_name or '-'}"
+                data_issue = combine_data_issue(
+                    data_issue,
+                    f"Outlet ShopeeFood belum dimapping exact: {store_name or '-'}",
+                )
+            data_issue = combine_data_issue(data_issue, amount_issue)
 
             results.append({
                 "source": "ShopeeFood",
@@ -1006,6 +1284,10 @@ def reconcile(erp_data, platform_data, allow_fuzzy=False):
     used_platform = set()
 
     for erp in erp_data:
+        if erp.get("data_issue"):
+            unmatched_erp.append(erp)
+            continue
+
         # Try exact match first
         key = (erp["store_folder"], erp["date"], erp["amount"])
         candidates = platform_index.get(key, [])
@@ -1266,7 +1548,7 @@ def generate_detail(matched, unmatched_erp, unmatched_platform):
             "ERP Amount": erp["amount"],
             "Platform Amount": 0,
             "Selisih": erp["amount"],
-            "Keterangan": f"Source: {erp.get('source_file', '')}",
+            "Keterangan": erp.get("data_issue") or f"Source: {erp.get('source_file', '')}",
         })
 
     # Unmatched platform
@@ -1385,8 +1667,61 @@ def print_terminal_summary(summary_rows, detail_rows, matched, unmatched_erp, un
         print()
 
 
-def export_to_excel(summary_rows, detail_rows, matched, unmatched_erp, unmatched_platform, start_date, end_date, output_path):
+def diagnostic_export_rows(diagnostics):
+    """Return reader-facing rows for the Catatan Data worksheet."""
+    events = (diagnostics or {}).get("events", [])
+    if not events:
+        return [{
+            "Jenis": "INFO",
+            "Platform": "",
+            "Tanggal": "",
+            "File Sumber": "",
+            "Toko / Outlet": "",
+            "Order ID": "",
+            "Field": "",
+            "Nilai Asli": "",
+            "Tindakan": "",
+            "Keterangan": "Tidak ada catatan data untuk periode ini",
+        }]
+
+    kind_labels = {
+        "ignored": "DILEWATI",
+        "amount_defaulted": "AMOUNT DINOLKAN",
+    }
+    return [{
+        "Jenis": kind_labels.get(event["kind"], event["kind"].upper()),
+        "Platform": event["platform"],
+        "Tanggal": event["date"],
+        "File Sumber": event["source_file"],
+        "Toko / Outlet": event["store"],
+        "Order ID": event["order_id"],
+        "Field": event["field"],
+        "Nilai Asli": event["original_value"],
+        "Tindakan": event["action"],
+        "Keterangan": event["message"],
+    } for event in events]
+
+
+def export_to_excel(
+    summary_rows,
+    detail_rows,
+    matched,
+    unmatched_erp,
+    unmatched_platform,
+    start_date,
+    end_date,
+    output_path,
+    diagnostics=None,
+):
     """Export results to Excel file."""
+    ensure_finite_payload(
+        {
+            "summary": summary_rows,
+            "detail": detail_rows,
+            "diagnostics": diagnostics or {},
+        },
+        "data export",
+    )
     with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
         # Sheet 1: Summary
         if summary_rows:
@@ -1440,6 +1775,20 @@ def export_to_excel(summary_rows, detail_rows, matched, unmatched_erp, unmatched
             pd.DataFrame(unmatched_plat).to_excel(
                 writer, sheet_name="Hanya di Platform", index=False
             )
+
+        # Sheet 6: Data-quality diagnostics (always present for auditability)
+        pd.DataFrame(diagnostic_export_rows(diagnostics)).to_excel(
+            writer, sheet_name="Catatan Data", index=False
+        )
+        ws = writer.sheets["Catatan Data"]
+        ws.freeze_panes = "A2"
+        ws.auto_filter.ref = ws.dimensions
+        widths = {
+            "A": 18, "B": 14, "C": 12, "D": 48, "E": 38,
+            "F": 20, "G": 24, "H": 20, "I": 34, "J": 54,
+        }
+        for column, width in widths.items():
+            ws.column_dimensions[column].width = width
 
     print(f"\n  [OK] Hasil disimpan ke: {output_path}")
 
@@ -1542,6 +1891,7 @@ def main():
     print(f"  Project path : {project_path}")
     print(f"  Periode      : {start_date} s/d {end_date}")
     print()
+    diagnostic_events = []
 
     # ---- Load ERP Data ----
     print("  [1/4] Loading data ERP...")
@@ -1551,12 +1901,12 @@ def main():
 
     erp_data = []
     for f in penerimaan_files:
-        data = load_erp_penerimaan(f, start_date, end_date)
+        data = load_erp_penerimaan(f, start_date, end_date, diagnostic_events)
         erp_data.extend(data)
         print(f"        -> {os.path.basename(f)}: {len(data)} transaksi online food")
 
     for f in transaksi_files:
-        data = load_erp_transaksi(f, start_date, end_date)
+        data = load_erp_transaksi(f, start_date, end_date, diagnostic_events)
         erp_data.extend(data)
         print(f"        -> {os.path.basename(f)}: {len(data)} transaksi online food")
 
@@ -1567,15 +1917,21 @@ def main():
     print("  [2/4] Loading data platform...")
 
     print("        Grabfood:")
-    grabfood_data = load_grabfood_reports(project_path, start_date, end_date)
+    grabfood_data = load_grabfood_reports(
+        project_path, start_date, end_date, diagnostic_events
+    )
     print(f"          {len(grabfood_data)} transaksi")
 
     print("        GoFood:")
-    gofood_data = load_gofood_reports(project_path, start_date, end_date)
+    gofood_data = load_gofood_reports(
+        project_path, start_date, end_date, diagnostic_events
+    )
     print(f"          {len(gofood_data)} transaksi")
 
     print("        ShopeeFood:")
-    shopeefood_data = load_shopeefood_reports(project_path, start_date, end_date)
+    shopeefood_data = load_shopeefood_reports(
+        project_path, start_date, end_date, diagnostic_events
+    )
     print(f"          {len(shopeefood_data)} transaksi")
 
     platform_data = grabfood_data + gofood_data + shopeefood_data
@@ -1629,7 +1985,17 @@ def main():
             os.makedirs(output_dir, exist_ok=True)
             output_path = os.path.join(output_dir, f"Rekon_OnlineFood_{date_str}.xlsx")
 
-        export_to_excel(summary_rows, detail_rows, all_matched, all_unmatched_erp, all_unmatched_platform, start_date, end_date, output_path)
+        export_to_excel(
+            summary_rows,
+            detail_rows,
+            all_matched,
+            all_unmatched_erp,
+            all_unmatched_platform,
+            start_date,
+            end_date,
+            output_path,
+            diagnostics=build_diagnostics(diagnostic_events),
+        )
 
     # Auto-save mapping if there are new stores
     if UNMAPPED_STORES:

@@ -8,7 +8,7 @@ Run this file on Windows:
 
 Optional installer build:
     Install Inno Setup, then run this script again. It will create:
-    dist/installer/RekonOnlineFoodSetup-1.04.exe
+    dist/installer/RekonOnlineFoodSetup-1.05.exe
 """
 
 import os

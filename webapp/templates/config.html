@@ -94,39 +94,56 @@
             font-weight: 600;
         }
 
-        .table-container { overflow-x: auto; }
+        .table-container {
+            overflow-x: auto;
+            max-width: 100%;
+        }
         table {
             width: 100%;
+            min-width: 1180px;
+            table-layout: fixed;
             border-collapse: collapse;
         }
         th {
             background: #f8f9fa;
-            padding: 12px 14px;
+            padding: 10px 8px;
             text-align: left;
             font-size: 0.8rem;
             text-transform: uppercase;
             color: #666;
             border-bottom: 2px solid #e0e0e0;
-            white-space: nowrap;
+            white-space: normal;
+            line-height: 1.25;
         }
         td {
-            padding: 10px 14px;
+            padding: 6px 8px;
             border-bottom: 1px solid #f0f0f0;
-            vertical-align: middle;
+            vertical-align: top;
         }
         tr:hover { background: #f8f9ff; }
         tr.new-row { background: #e8f5e9; }
 
-        td input, td select {
+        td input, td select, td textarea {
             width: 100%;
-            padding: 6px 10px;
+            padding: 5px 7px;
             border: 1px solid #ddd;
             border-radius: 4px;
-            font-size: 0.9rem;
+            font: inherit;
+            font-size: 0.82rem;
+            line-height: 1.3;
+            background: white;
         }
-        td input:focus, td select:focus {
+        td textarea {
+            min-height: 30px;
+            resize: none;
+            overflow: hidden;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+        td input:focus, td select:focus, td textarea:focus {
             outline: none;
             border-color: #1a237e;
+            box-shadow: 0 0 0 2px rgba(26,35,126,0.1);
         }
         td input.empty { color: #999; font-style: italic; }
 
@@ -134,12 +151,19 @@
             font-weight: 700;
             color: #1a237e;
             font-family: monospace;
-            font-size: 0.95rem;
+            font-size: 0.82rem;
+            line-height: 1.3;
+            overflow-wrap: anywhere;
         }
 
-        .actions { display: flex; gap: 6px; }
+        .actions {
+            display: flex;
+            gap: 4px;
+            justify-content: center;
+            align-items: flex-start;
+        }
         .actions button {
-            padding: 5px 10px;
+            padding: 5px 8px;
             font-size: 0.8rem;
             border: 1px solid #ddd;
             border-radius: 4px;
@@ -223,6 +247,11 @@
             justify-content: flex-end;
             margin-top: 20px;
         }
+
+        @media (max-width: 900px) {
+            .container { padding: 12px; }
+            table { min-width: 1080px; }
+        }
     </style>
 </head>
 <body>
@@ -249,6 +278,16 @@
             </div>
             <div class="table-container">
                 <table>
+                    <colgroup>
+                        <col style="width:11%;">
+                        <col style="width:10%;">
+                        <col style="width:16%;">
+                        <col style="width:11%;">
+                        <col style="width:18%;">
+                        <col style="width:18%;">
+                        <col style="width:10%;">
+                        <col style="width:6%;">
+                    </colgroup>
                     <thead>
                         <tr>
                             <th>Folder Name</th>
@@ -258,7 +297,7 @@
                             <th>GrabFood Store Name</th>
                             <th>ShopeeFood Store Name</th>
                             <th>GoFood Merchant ID</th>
-                            <th style="width:100px;">Aksi</th>
+                            <th>Aksi</th>
                         </tr>
                     </thead>
                     <tbody id="mappingTable"></tbody>
@@ -338,6 +377,41 @@
             renderTable();
         }
 
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function escapeJsSingle(value) {
+            return String(value ?? '')
+                .replace(/\\/g, '\\\\')
+                .replace(/'/g, "\\'")
+                .replace(/\r?\n/g, ' ');
+        }
+
+        function autoGrow(element) {
+            element.style.height = 'auto';
+            const borderHeight = element.offsetHeight - element.clientHeight;
+            element.style.height = `${element.scrollHeight + borderHeight + 2}px`;
+        }
+
+        function resizeMappingFields() {
+            document.querySelectorAll('#mappingTable textarea').forEach(autoGrow);
+        }
+
+        function mappingField(key, field, value) {
+            const safeKey = escapeJsSingle(key);
+            const safeValue = escapeHtml(value || '');
+            return `<textarea rows="1"
+                title="${safeValue}"
+                placeholder="-"
+                oninput="updateField('${safeKey}','${field}',this.value);autoGrow(this)">${safeValue}</textarea>`;
+        }
+
         function renderTable(filter = '') {
             const tbody = document.getElementById('mappingTable');
             const keys = Object.keys(stores).sort();
@@ -349,13 +423,13 @@
             tbody.innerHTML = filtered.map(k => {
                 const s = stores[k];
                 return `<tr data-key="${k}">
-                    <td class="folder-name">${k}</td>
-                    <td><input value="${s.display || ''}" onchange="updateField('${k}','display',this.value)"></td>
-                    <td><input value="${s.erp1 || ''}" onchange="updateField('${k}','erp1',this.value)" placeholder="-"></td>
-                    <td><input value="${s.erp2 || ''}" onchange="updateField('${k}','erp2',this.value)" placeholder="-"></td>
-                    <td><input value="${s.grabfood_store || ''}" onchange="updateField('${k}','grabfood_store',this.value)" placeholder="-"></td>
-                    <td><input value="${s.shopeefood_store || ''}" onchange="updateField('${k}','shopeefood_store',this.value)" placeholder="-"></td>
-                    <td><input value="${s.gof_merchant_id || ''}" onchange="updateField('${k}','gof_merchant_id',this.value)" placeholder="-"></td>
+                    <td class="folder-name" title="${escapeHtml(k)}">${escapeHtml(k)}</td>
+                    <td>${mappingField(k, 'display', s.display)}</td>
+                    <td>${mappingField(k, 'erp1', s.erp1)}</td>
+                    <td>${mappingField(k, 'erp2', s.erp2)}</td>
+                    <td>${mappingField(k, 'grabfood_store', s.grabfood_store)}</td>
+                    <td>${mappingField(k, 'shopeefood_store', s.shopeefood_store)}</td>
+                    <td>${mappingField(k, 'gof_merchant_id', s.gof_merchant_id)}</td>
                     <td class="actions">
                         <button class="btn-edit" onclick="showEditModal('${k}')">✏️</button>
                         <button class="btn-del" onclick="deleteStore('${k}')">🗑️</button>
@@ -363,6 +437,7 @@
                 </tr>`;
             }).join('');
 
+            resizeMappingFields();
             document.getElementById('storeCount').textContent = `${filtered.length} toko`;
         }
 
@@ -466,6 +541,11 @@
         }
 
         // Init
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(resizeMappingFields, 80);
+        });
         document.getElementById('projectPath').value = projectPath;
         loadMapping();
     </script>

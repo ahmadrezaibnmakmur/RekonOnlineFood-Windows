@@ -65,6 +65,6 @@ echo   SELESAI
 echo ==========================================
 echo.
 echo Installer ada di:
-echo dist\installer\RekonOnlineFoodSetup-1.04.exe
+echo dist\installer\RekonOnlineFoodSetup-1.05.exe
 echo.
 pause
