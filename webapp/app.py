@@ -114,15 +114,16 @@ def mapping_payload(stores):
 
 
 def mapping_path_for(project_path):
-    return os.path.join(project_path, "store_mapping.json")
+    return os.path.join(rekon.resolve_data_root(project_path), "store_mapping.json")
 
 
 def load_mapping_for_project(project_path):
-    """Load project mapping, falling back to the bundled default mapping."""
-    mapping_path = mapping_path_for(project_path)
-    payload = read_mapping_payload(mapping_path)
-    if payload is not None:
-        return payload
+    """Load mapping beside raw data, with legacy project-root fallback."""
+    paths = (mapping_path_for(project_path), os.path.join(project_path, "store_mapping.json"))
+    for mapping_path in dict.fromkeys(paths):
+        payload = read_mapping_payload(mapping_path)
+        if payload is not None:
+            return payload
     return default_mapping_payload()
 
 

@@ -1,5 +1,6 @@
 import math
 import os
+import json
 from datetime import date
 from tempfile import TemporaryDirectory
 from unittest import TestCase, main
@@ -12,6 +13,36 @@ from webapp import app as webapp_module
 
 
 class DataQualityTests(TestCase):
+    def test_mapping_in_raw_data_folder_overrides_legacy_root_mapping(self):
+        with TemporaryDirectory() as temporary_dir:
+            raw_data_dir = os.path.join(temporary_dir, "Raw Data Transaksi")
+            os.mkdir(raw_data_dir)
+            with open(os.path.join(temporary_dir, "store_mapping.json"), "w") as f:
+                json.dump({"stores": {"ROOT": {}}}, f)
+            with open(os.path.join(raw_data_dir, "store_mapping.json"), "w") as f:
+                json.dump({"stores": {"PONDOK KELAPA": {}}}, f)
+
+            mapping = webapp_module.load_mapping_for_project(temporary_dir)
+
+        self.assertIn("PONDOK KELAPA", mapping["stores"])
+
+    def test_erp_penerimaan_accepts_gofood_case_variant(self):
+        report = rekon.pd.DataFrame([{
+            "Tipe Pembayaran": "Gofood",
+            "Waktu Transaksi (POS)": "2026-09-10 09:41:07",
+            "Nama Cabang Faktur Penjualan": "Procil Kios Pondok Kelapa",
+            "Nomor # Faktur Penjualan": "PKP-100926.00038",
+            "Total Penerimaan": 42500,
+        }])
+        with patch.object(rekon.pd, "read_excel", return_value=report), patch.object(
+            rekon, "auto_detect_store", return_value=("PONDOK KELAPA", False)
+        ):
+            rows = rekon.load_erp_penerimaan(
+                "erp.xlsx", date(2026, 9, 10), date(2026, 9, 10)
+            )
+
+        self.assertEqual(rows[0]["platform"], "GoFood")
+
     def grab_rows(self, rows, diagnostics=None):
         report = rekon.pd.DataFrame(rows)
         with patch.object(rekon, "find_platform_reports", return_value=[{

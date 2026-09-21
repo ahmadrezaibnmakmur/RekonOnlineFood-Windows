@@ -574,9 +574,15 @@ def load_erp_penerimaan(filepath, start_date, end_date, diagnostics=None):
             clean_cols.append(str(c))
     df.columns = clean_cols
 
-    # Filter only online food
-    online_platforms = ["GoFood", "GrabFood", "Shopee Food"]
-    df = df[df["Tipe Pembayaran"].isin(online_platforms)].copy()
+    # ERP exports use both "GoFood" and "Gofood".
+    platform_names = {
+        "gofood": "GoFood",
+        "grabfood": "GrabFood",
+        "shopee food": "ShopeeFood",
+        "shopeefood": "ShopeeFood",
+    }
+    df["platform"] = df["Tipe Pembayaran"].astype(str).str.strip().str.casefold().map(platform_names)
+    df = df[df["platform"].notna()].copy()
 
     if df.empty:
         return []
@@ -595,10 +601,7 @@ def load_erp_penerimaan(filepath, start_date, end_date, diagnostics=None):
         folder, is_new = auto_detect_store(cabang, "erp_penerimaan")
         no_faktur = str(row.get("Nomor # Faktur Penjualan", ""))
 
-        # Normalize platform name
-        platform = row["Tipe Pembayaran"]
-        if platform == "Shopee Food":
-            platform = "ShopeeFood"
+        platform = row["platform"]
 
         raw_amount = row.get("Total Penerimaan", 0)
         amount, amount_valid = finite_number(raw_amount)
