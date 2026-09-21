@@ -7,8 +7,7 @@ Run this file on Windows:
     py build_windows.py
 
 Optional installer build:
-    Install Inno Setup, then run this script again. It will create:
-    dist/installer/RekonOnlineFoodSetup-1.05.exe
+    Install Inno Setup, then run this script again.
 """
 
 import os
@@ -143,7 +142,11 @@ def build_installer():
         sys.exit(1)
 
     print("[3/3] Building installer...")
-    subprocess.run([compiler, INSTALLER_SCRIPT], cwd=SCRIPT_DIR, check=True)
+    subprocess.run(
+        [compiler, f"/DMyAppVersion={APP_VERSION}", INSTALLER_SCRIPT],
+        cwd=SCRIPT_DIR,
+        check=True,
+    )
     setup_path = os.path.join(DIST_DIR, "installer", SETUP_NAME)
     if not os.path.exists(setup_path):
         print(f"ERROR: Installer tidak ditemukan: {setup_path}")
