@@ -51,6 +51,14 @@ class DataQualityTests(TestCase):
             "KALIABANG",
         )
 
+    def test_platform_mapping_ignores_spreadsheet_apostrophe_and_extra_space(self):
+        self.assertEqual(
+            rekon.map_platform_store(
+                "'Procil Bubur Tim Organik -  Kios Pondok Kelapa", "shopeefood"
+            ),
+            "PONDOK KELAPA",
+        )
+
     def grab_rows(self, rows, diagnostics=None):
         report = rekon.pd.DataFrame(rows)
         with patch.object(rekon, "find_platform_reports", return_value=[{

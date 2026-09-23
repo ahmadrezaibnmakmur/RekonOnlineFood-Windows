@@ -120,11 +120,12 @@ def map_platform_store(name, source):
         "gofood": GOFOOD_MERCHANT_TO_FOLDER,
         "shopeefood": SHOPEEFOOD_STORE_TO_FOLDER,
     }.get(source.lower(), {})
-    value = str(name).strip() if name is not None else ""
+    value = " ".join(str(name).strip().lstrip("'").split()) if name is not None else ""
     if not value:
         return "UNMAPPED"
     for mapped_value, folder in lookup.items():
-        if str(mapped_value).casefold() == value.casefold():
+        mapped_value = " ".join(str(mapped_value).strip().lstrip("'").split())
+        if mapped_value.casefold() == value.casefold():
             return folder
     return "UNMAPPED"
 
