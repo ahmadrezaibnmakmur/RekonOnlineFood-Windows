@@ -51,10 +51,10 @@ class DataQualityTests(TestCase):
             "KALIABANG",
         )
 
-    def test_platform_mapping_ignores_spreadsheet_apostrophe_and_extra_space(self):
+    def test_platform_mapping_ignores_special_characters(self):
         self.assertEqual(
             rekon.map_platform_store(
-                "'Procil Bubur Tim Organik -  Kios Pondok Kelapa", "shopeefood"
+                "'Procil Bubur Tim Organik - [Kios] Pondok Kelapa!", "shopeefood"
             ),
             "PONDOK KELAPA",
         )

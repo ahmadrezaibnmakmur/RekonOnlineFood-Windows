@@ -113,6 +113,10 @@ for folder, info in STORE_MAP.items():
 UNMAPPED_STORES = []
 
 
+def normalize_platform_identifier(value):
+    return "".join(char for char in str(value).casefold() if char.isalnum())
+
+
 def map_platform_store(name, source):
     """Map a platform identifier only through its platform-specific exact mapping."""
     lookup = {
@@ -120,12 +124,11 @@ def map_platform_store(name, source):
         "gofood": GOFOOD_MERCHANT_TO_FOLDER,
         "shopeefood": SHOPEEFOOD_STORE_TO_FOLDER,
     }.get(source.lower(), {})
-    value = " ".join(str(name).strip().lstrip("'").split()) if name is not None else ""
+    value = normalize_platform_identifier(name) if name is not None else ""
     if not value:
         return "UNMAPPED"
     for mapped_value, folder in lookup.items():
-        mapped_value = " ".join(str(mapped_value).strip().lstrip("'").split())
-        if mapped_value.casefold() == value.casefold():
+        if normalize_platform_identifier(mapped_value) == value:
             return folder
     return "UNMAPPED"
 
