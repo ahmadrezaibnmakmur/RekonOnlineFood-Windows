@@ -43,13 +43,14 @@ except ImportError:
 
 CONFIG_DIR = os.path.dirname(os.path.abspath(__file__))
 STORE_MAPPING_FILE = os.path.join(CONFIG_DIR, "store_mapping.json")
-RAW_DATA_DIR_NAME = "Raw Data Transaksi"
+RAW_DATA_DIR_NAME = "RAW DATA TRANSAKSI"
 
 
 def load_store_mapping():
     """Load store mapping from JSON config file."""
+    data_mapping = os.path.join(CONFIG_DIR, RAW_DATA_DIR_NAME, "store_mapping.json")
     fallback_mapping = os.path.join(CONFIG_DIR, "RekonOnlineFood-Windows", "store_mapping.json")
-    for mapping_file in (STORE_MAPPING_FILE, fallback_mapping):
+    for mapping_file in (data_mapping, STORE_MAPPING_FILE, fallback_mapping):
         if not os.path.exists(mapping_file) or os.path.getsize(mapping_file) == 0:
             continue
         try:

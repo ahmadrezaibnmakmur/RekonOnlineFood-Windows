@@ -43,6 +43,14 @@ class DataQualityTests(TestCase):
 
         self.assertEqual(rows[0]["platform"], "GoFood")
 
+    def test_grabfood_kaliabang_alias_is_mapped(self):
+        self.assertEqual(
+            rekon.map_platform_store(
+                "Procil Bubur Tim Organik - Kios Kaliabang Tengah", "grabfood"
+            ),
+            "KALIABANG",
+        )
+
     def grab_rows(self, rows, diagnostics=None):
         report = rekon.pd.DataFrame(rows)
         with patch.object(rekon, "find_platform_reports", return_value=[{

@@ -89,6 +89,14 @@
             "shopeefood_store": "Procil Bubur Tim Organik - Kios Jatimakmur",
             "gof_merchant_id": "G947005876"
         },
+        "KALIABANG": {
+            "erp1": "Procil Kios Kaliabang",
+            "erp2": null,
+            "display": "Kaliabang",
+            "grabfood_store": "Procil Bubur Tim Organik - Kios Kaliabang Tengah",
+            "shopeefood_store": null,
+            "gof_merchant_id": null
+        },
         "RAWA KALONG": {
             "erp1": "Procil Kios Rawa Kalong",
             "erp2": null,
@@ -132,6 +140,14 @@
             "display": "Kayuringin",
             "grabfood_store": null,
             "shopeefood_store": null
+        },
+        "PONDOK KELAPA": {
+            "erp1": "Procil Kios Pondok Kelapa",
+            "erp2": null,
+            "display": "Pondok Kelapa",
+            "grabfood_store": "Procil Bubur Tim Organik - Kios Pondok Kelapa",
+            "shopeefood_store": "Procil Bubur Tim Organik - Kios Pondok Kelapa",
+            "gof_merchant_id": "G598403706"
         },
         "G692441385": {
             "erp1": null,
